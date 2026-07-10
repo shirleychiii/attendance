@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HerStrategy Marketing · 打卡系統</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --charcoal:   #3c3936;
+    --brand-blue: #839fc1;
+    --deep-blue:  #164067;
+    --rose:       #bd898e;
+    --warm-gray:  #b9bdc1;
+    --blue-lo:    #dce7f1;
+    --rose-lo:    #f2e3e4;
+    --bg:         #f5f4f2;
+    --surface:    #fafaf9;
+    --border:     #e2dedd;
+    --text:       #3c3936;
+    --text-soft:  #7a7875;
+    --radius-lg:  20px;
+    --radius-md:  14px;
+    --shadow:     0 3px 20px rgba(60,57,54,.09);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'M PLUS Rounded 1c', -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .deco { position: fixed; top: -60px; right: -60px; width: 220px; height: 220px; pointer-events: none; z-index: 0; }
+  .deco .c1 { position: absolute; width: 160px; height: 160px; border-radius: 50%; background: var(--charcoal); opacity: .07; top: 0; right: 0; }
+  .deco .c2 { position: absolute; width: 110px; height: 110px; border-radius: 50%; background: var(--brand-blue); opacity: .13; bottom: 10px; right: 30px; }
+
+  .header { width: 100%; max-width: 430px; padding: 22px 24px 14px; display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-mark { width: 38px; height: 38px; background: var(--charcoal); border-radius: 11px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .logo-mark::after { content: ''; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: var(--brand-blue); opacity: .55; bottom: -4px; right: -4px; }
+  .logo-mark span { font-size: 15px; font-weight: 800; color: #fff; position: relative; z-index: 1; }
+  .logo-cn { font-size: 13px; font-weight: 700; color: var(--charcoal); letter-spacing: .5px; }
+  .logo-en { font-size: 9.5px; color: var(--text-soft); letter-spacing: .8px; text-transform: uppercase; }
+  .date-chip { font-size: 11.5px; font-weight: 500; color: var(--text-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 11px; border-radius: 99px; }
+
+  .screen { width: 100%; max-width: 430px; padding: 0 18px 36px; display: none; flex-direction: column; gap: 14px; position: relative; z-index: 1; }
+  .screen.active { display: flex; }
+  .card { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden; }
+  .card-inner { padding: 22px; }
+
+  /* Login */
+  .login-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--brand-blue); margin-bottom: 6px; }
+  .login-title { font-size: 22px; font-weight: 800; color: var(--charcoal); margin-bottom: 3px; }
+  .login-sub { font-size: 13px; color: var(--text-soft); margin-bottom: 24px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-soft); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
+  .field input { width: 100%; padding: 13px 15px; font-size: 15px; font-family: inherit; font-weight: 500; border: 1.5px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); outline: none; transition: border-color .15s; -webkit-appearance: none; }
+  .field input:focus { border-color: var(--brand-blue); }
+  .btn-login { width: 100%; padding: 15px; font-size: 15px; font-weight: 700; font-family: inherit; background: var(--charcoal); color: #fff; border: none; border-radius: var(--radius-md); cursor: pointer; margin-top: 4px; transition: opacity .15s, transform .1s; -webkit-tap-highlight-color: transparent; }
+  .btn-login:active { transform: scale(.97); opacity: .9; }
+  .err-msg { font-size: 12px; color: var(--rose); margin-top: 8px; display: none; }
+
+  /* Greeting */
+  .dash-greeting { font-size: 21px; font-weight: 800; color: var(--charcoal); }
+  .dash-id { font-size: 12px; color: var(--text-soft); margin-top: 2px; }
+
+  /* Clock */
+  .clock-wrap { padding: 26px 22px 22px; background: var(--charcoal); border-radius: var(--radius-lg); position: relative; overflow: hidden; }
+  .clock-wrap::before { content: ''; position: absolute; width: 180px; height: 180px; border-radius: 50%; background: var(--brand-blue); opacity: .12; top: -70px; right: -50px; }
+  .clock-wrap::after  { content: ''; position: absolute; width: 120px; height: 120px; border-radius: 50%; background: #fff; opacity: .04; bottom: -40px; right: 20px; }
+  .clock-label { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--brand-blue); margin-bottom: 6px; position: relative; z-index: 1; }
+  .clock-time  { font-size: 54px; font-weight: 300; letter-spacing: -2px; color: #fff; font-variant-numeric: tabular-nums; line-height: 1; position: relative; z-index: 1; }
+  .clock-date  { font-size: 12.5px; color: rgba(255,255,255,.5); margin-top: 6px; position: relative; z-index: 1; }
+  .status-row  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 18px; position: relative; z-index: 1; }
+  .status-chip { background: rgba(255,255,255,.08); border-radius: 11px; padding: 11px 8px; text-align: center; }
+  .chip-label  { font-size: 9.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: rgba(255,255,255,.45); margin-bottom: 4px; }
+  .chip-val    { font-size: 14px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+  .chip-val.has-in  { color: #9ed8be; }
+  .chip-val.has-out { color: #f0b8bc; }
+
+  /* Punch */
+  .punch-section { padding: 22px; }
+  .punch-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-soft); text-align: center; margin-bottom: 12px; }
+  .btn-punch { width: 100%; padding: 20px; font-size: 17px; font-weight: 800; font-family: inherit; border: none; border-radius: var(--radius-md); cursor: pointer; transition: transform .1s, opacity .15s; -webkit-tap-highlight-color: transparent; }
+  .btn-punch:active { transform: scale(.97); opacity: .9; }
+  .btn-punch.state-in   { background: var(--charcoal); color: #fff; }
+  .btn-punch.state-out  { background: var(--rose); color: #fff; }
+  .btn-punch.state-done { background: #eeecea; color: var(--text-soft); cursor: default; }
+
+  /* Records */
+  .section-label { font-size: 10.5px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: var(--text-soft); padding: 0 2px; }
+  .record-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-bottom: 1px solid var(--bg); }
+  .record-item:last-child { border-bottom: none; }
+  .record-dot  { width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+  .dot-in  { background: var(--deep-blue); }
+  .dot-out { background: var(--rose); }
+  .record-left { display: flex; align-items: center; }
+  .record-type { font-size: 13px; font-weight: 700; color: var(--charcoal); }
+  .record-date { font-size: 11px; color: var(--text-soft); }
+  .record-time { font-size: 15px; font-weight: 500; color: var(--charcoal); font-variant-numeric: tabular-nums; }
+  .empty-state { padding: 36px; text-align: center; color: var(--text-soft); font-size: 13px; }
+
+  /* Leave */
+  .leave-badge { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-radius: 12px; margin-bottom: 8px; }
+  .leave-badge:last-child { margin-bottom: 0; }
+  .badge-name { font-size: 13px; font-weight: 700; }
+  .badge-days { font-size: 13px; font-weight: 500; }
+  .badge-days strong { font-weight: 800; }
+  .leave-form { display: flex; flex-direction: column; gap: 12px; }
+  .leave-form select, .leave-form input[type=date], .leave-form input[type=text] { width: 100%; padding: 12px 14px; font-size: 14px; font-family: inherit; font-weight: 500; border: 1.5px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); outline: none; -webkit-appearance: none; appearance: none; }
+  .leave-form select:focus, .leave-form input:focus { border-color: var(--brand-blue); }
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-label-sm { font-size: 10px; font-weight: 700; color: var(--text-soft); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 4px; }
+  .btn-submit { width: 100%; padding: 14px; font-size: 14px; font-weight: 700; font-family: inherit; background: var(--deep-blue); color: #fff; border: none; border-radius: var(--radius-md); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .15s; }
+  .btn-submit:active { opacity: .85; }
+  .leave-msg { font-size: 12px; text-align: center; min-height: 16px; color: var(--text-soft); }
+  .leave-msg.ok { color: var(--deep-blue); font-weight: 600; }
+
+  /* Nav */
+  .bottom-nav { width: 100%; max-width: 430px; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); background: var(--surface); border-top: 1px solid var(--border); display: none; align-items: center; justify-content: space-around; padding: 10px 0 max(10px, env(safe-area-inset-bottom)); z-index: 100; }
+  .bottom-nav.visible { display: flex; }
+  .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 20px; cursor: pointer; border: none; background: none; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+  .nav-icon  { font-size: 19px; line-height: 1; }
+  .nav-label { font-size: 10px; font-weight: 500; color: var(--text-soft); }
+  .nav-btn.active .nav-label { color: var(--charcoal); font-weight: 800; }
+  .nav-spacer { height: 78px; }
+
+  /* Result overlay */
+  .overlay { position: fixed; inset: 0; z-index: 200; display: none; align-items: flex-end; justify-content: center; background: rgba(60,57,54,.45); backdrop-filter: blur(5px); }
+  .overlay.show { display: flex; }
+  .result-sheet { background: var(--surface); width: 100%; max-width: 430px; border-radius: 24px 24px 0 0; padding: 32px 28px max(32px, env(safe-area-inset-bottom)); text-align: center; animation: slideUp .3s cubic-bezier(.34,1.4,.64,1); position: relative; overflow: hidden; }
+  .result-sheet::before { content: ''; position: absolute; width: 160px; height: 160px; border-radius: 50%; background: var(--brand-blue); opacity: .07; top: -60px; right: -40px; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .result-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 24px; }
+  .result-icon-wrap { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 32px; }
+  .icon-in  { background: var(--blue-lo); }
+  .icon-out { background: var(--rose-lo); }
+  .result-punch-type { font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 4px; }
+  .result-punch-type.in  { color: var(--deep-blue); }
+  .result-punch-type.out { color: var(--rose); }
+  .result-time-big { font-size: 48px; font-weight: 300; color: var(--charcoal); letter-spacing: -2px; font-variant-numeric: tabular-nums; line-height: 1; margin-bottom: 4px; }
+  .result-date-sub { font-size: 13px; color: var(--text-soft); margin-bottom: 28px; }
+  .btn-dismiss { width: 100%; padding: 14px; font-size: 14px; font-weight: 700; font-family: inherit; background: var(--charcoal); color: #fff; border: none; border-radius: var(--radius-md); cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="deco"><div class="c1"></div><div class="c2"></div></div>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark"><span>她</span></div>
+    <div>
+      <div class="logo-cn">她勢行銷</div>
+      <div class="logo-en">HerStrategy Marketing</div>
+    </div>
+  </div>
+  <div class="date-chip" id="header-date"></div>
+</div>
+
+<!-- 登入 -->
+<div class="screen active" id="screen-login">
+  <div class="card">
+    <div class="card-inner">
+      <div class="login-eyebrow">Employee Login</div>
+      <div class="login-title">員工登入</div>
+      <div class="login-sub">請輸入員工編號與密碼</div>
+      <div class="field">
+        <label>員工編號</label>
+        <input type="text" id="inp-id" placeholder="例：H001" autocomplete="off" autocapitalize="characters">
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input type="password" id="inp-pw" placeholder="••••••">
+      </div>
+      <div class="err-msg" id="login-err">員工編號或密碼錯誤</div>
+      <button class="btn-login" onclick="doLogin()">登入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 打卡 -->
+<div class="screen" id="screen-punch">
+  <div>
+    <div class="dash-greeting" id="greet-name"></div>
+    <div class="dash-id" id="greet-id"></div>
+  </div>
+  <div class="clock-wrap">
+    <div class="clock-label">Current Time</div>
+    <div class="clock-time" id="live-clock">00:00:00</div>
+    <div class="clock-date"  id="live-date"></div>
+    <div class="status-row">
+      <div class="status-chip"><div class="chip-label">上班</div><div class="chip-val" id="today-in">——</div></div>
+      <div class="status-chip"><div class="chip-label">下班</div><div class="chip-val" id="today-out">——</div></div>
+      <div class="status-chip"><div class="chip-label">時數</div><div class="chip-val" id="today-hrs">——</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="punch-section">
+      <div class="punch-eyebrow" id="punch-eyebrow">準備打卡</div>
+      <button class="btn-punch state-in" id="punch-btn" onclick="doPunch()">上班打卡</button>
+    </div>
+  </div>
+  <div class="nav-spacer"></div>
+</div>
+
+<!-- 紀錄 -->
+<div class="screen" id="screen-records">
+  <div class="section-label">本月打卡紀錄</div>
+  <div class="card"><div id="record-list"><div class="empty-state">尚無打卡紀錄</div></div></div>
+  <div class="nav-spacer"></div>
+</div>
+
+<!-- 請假 -->
+<div class="screen" id="screen-leave">
+  <div class="section-label">假別餘額</div>
+  <div class="card"><div class="card-inner" id="leave-badges"></div></div>
+  <div class="section-label">送出請假申請</div>
+  <div class="card">
+    <div class="card-inner">
+      <div class="leave-form">
+        <div>
+          <div class="form-label-sm">假別</div>
+          <select id="leave-type">
+            <option value="特休">特休</option>
+            <option value="病假">病假（半薪）</option>
+            <option value="事假">事假（無薪）</option>
+            <option value="生理假">生理假（半薪）</option>
+          </select>
+        </div>
+        <div class="date-row">
+          <div><div class="form-label-sm">開始日期</div><input type="date" id="leave-start"></div>
+          <div><div class="form-label-sm">結束日期</div><input type="date" id="leave-end"></div>
+        </div>
+        <div>
+          <div class="form-label-sm">說明（選填）</div>
+          <input type="text" id="leave-note" placeholder="例：看診、家庭因素…">
+        </div>
+        <button class="btn-submit" onclick="submitLeave()">送出申請</button>
+        <div class="leave-msg" id="leave-msg"></div>
+      </div>
+    </div>
+  </div>
+  <div class="nav-spacer"></div>
+</div>
+
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="nav-btn active" onclick="switchTab('punch',this)"><span class="nav-icon">⏱</span><span class="nav-label">打卡</span></button>
+  <button class="nav-btn" onclick="switchTab('records',this)"><span class="nav-icon">📋</span><span class="nav-label">紀錄</span></button>
+  <button class="nav-btn" onclick="switchTab('leave',this)"><span class="nav-icon">🗓</span><span class="nav-label">請假</span></button>
+  <button class="nav-btn" onclick="doLogout()"><span class="nav-icon">👤</span><span class="nav-label">登出</span></button>
+</nav>
+
+<div class="overlay" id="overlay">
+  <div class="result-sheet">
+    <div class="result-handle"></div>
+    <div class="result-icon-wrap" id="res-icon-wrap"><span id="res-icon"></span></div>
+    <div class="result-punch-type" id="res-type"></div>
+    <div class="result-time-big"   id="res-time"></div>
+    <div class="result-date-sub"   id="res-date"></div>
+    <button class="btn-dismiss" onclick="closeResult()">查看打卡紀錄</button>
+  </div>
+</div>
+
+<script>
+// ── 在職員工資料（H003/006/007 略過；江存方今日最後一天保留） ────────────
+const EMP = {
+  // 今日最後一天，保留至今天
+  "H005": { name:"江存方", hire:"2025/04/14", pw:"005",  annual:7,  sick:30, personal:14, physio:12 },
+  // 在職中
+  "H001": { name:"紀璇",   hire:"2024/09/11", pw:"001",  annual:10, sick:30, personal:14, physio:12 },
+  "H013": { name:"廖子緹", hire:"2026/04/13", pw:"013",  annual:3,  sick:30, personal:14, physio:12 },
+  "H016": { name:"林翔",   hire:"2026/06/15", pw:"016",  annual:0,  sick:30, personal:14, physio:12 },
+  "H017": { name:"魏芷嵐", hire:"2026/06/22", pw:"017",  annual:0,  sick:30, personal:14, physio:12 },
+};
+
+// 特休依年資自動計算（週年制）
+function calcAnnual(hireStr) {
+  const hire = new Date(hireStr.replace(/\//g,'-'));
+  const today = new Date();
+  const months = (today.getFullYear()-hire.getFullYear())*12 + (today.getMonth()-hire.getMonth())
+    - (today.getDate()<hire.getDate()?1:0);
+  if(months<6)   return 0;
+  if(months<12)  return 3;
+  if(months<24)  return 7;
+  if(months<36)  return 10;
+  if(months<60)  return 14;
+  if(months<120) return 15;
+  return Math.min(30, 15 + Math.floor(months/12) - 10);
+}
+// 注入計算後的特休
+Object.keys(EMP).forEach(k => { EMP[k].annual = calcAnnual(EMP[k].hire); });
+
+const WD = ['日','一','二','三','四','五','六'];
+let me = null;
+let records   = JSON.parse(localStorage.getItem('hs_punch') || '[]');
+let leaveReqs = JSON.parse(localStorage.getItem('hs_leave') || '[]');
+
+const f2 = n => String(n).padStart(2,'0');
+const fmtT  = d => `${f2(d.getHours())}:${f2(d.getMinutes())}`;
+const fmtTF = d => `${f2(d.getHours())}:${f2(d.getMinutes())}:${f2(d.getSeconds())}`;
+const todayKey = () => { const d=new Date(); return `${d.getFullYear()}/${f2(d.getMonth()+1)}/${f2(d.getDate())}`; };
+const todayRecs = () => records.filter(r => r.eid===me && r.date===todayKey());
+
+function setHdrDate(){
+  const d=new Date();
+  document.getElementById('header-date').textContent=`${d.getFullYear()}/${f2(d.getMonth()+1)}/${f2(d.getDate())}`;
+}
+setHdrDate();
+
+function tick(){
+  const d=new Date();
+  const ce=document.getElementById('live-clock'); if(ce) ce.textContent=fmtTF(d);
+  const de=document.getElementById('live-date');  if(de) de.textContent=`${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（${WD[d.getDay()]}）`;
+}
+setInterval(tick,1000); tick();
+
+document.getElementById('inp-pw').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+
+function doLogin(){
+  const id  = document.getElementById('inp-id').value.trim().toUpperCase();
+  const pw  = document.getElementById('inp-pw').value.trim();
+  const emp = EMP[id];
+  const err = document.getElementById('login-err');
+  if(!emp || emp.pw !== pw){ err.style.display='block'; return; }
+  err.style.display='none'; me=id;
+  document.getElementById('bottom-nav').classList.add('visible');
+  showScreen('punch'); renderPunch();
+}
+function doLogout(){
+  me=null;
+  document.getElementById('bottom-nav').classList.remove('visible');
+  document.getElementById('inp-id').value='';
+  document.getElementById('inp-pw').value='';
+  showScreen('login');
+}
+function showScreen(n){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+n).classList.add('active');
+}
+function switchTab(n,btn){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); showScreen(n);
+  if(n==='punch')   renderPunch();
+  if(n==='records') renderRecords();
+  if(n==='leave')   renderLeave();
+}
+function getGreet(){ const h=new Date().getHours(); return h<12?'早安':h<18?'午安':'晚安'; }
+
+function renderPunch(){
+  if(!me) return;
+  const emp=EMP[me], tr=todayRecs();
+  const hasIn=tr.find(r=>r.type==='in'), hasOut=tr.find(r=>r.type==='out');
+  document.getElementById('greet-name').textContent=`${getGreet()}，${emp.name} ⟡`;
+  document.getElementById('greet-id').textContent=`${me} · HerStrategy Marketing`;
+
+  const inEl=document.getElementById('today-in'), outEl=document.getElementById('today-out'), hrsEl=document.getElementById('today-hrs');
+  if(hasIn){ inEl.textContent=hasIn.time; inEl.className='chip-val has-in'; } else { inEl.textContent='——'; inEl.className='chip-val'; }
+  if(hasOut){ outEl.textContent=hasOut.time; outEl.className='chip-val has-out'; } else { outEl.textContent='——'; outEl.className='chip-val'; }
+  if(hasIn&&hasOut){
+    const [ih,im]=hasIn.time.split(':').map(Number), [oh,om]=hasOut.time.split(':').map(Number);
+    const mins=(oh*60+om)-(ih*60+im);
+    hrsEl.textContent=`${Math.floor(mins/60)}h${mins%60}m`;
+  } else { hrsEl.textContent='——'; }
+
+  const btn=document.getElementById('punch-btn'), ey=document.getElementById('punch-eyebrow');
+  if(hasIn&&hasOut){
+    btn.className='btn-punch state-done'; btn.textContent='今日打卡完成 ✓'; ey.textContent='Attendance Recorded';
+  } else if(hasIn){
+    btn.className='btn-punch state-out'; btn.textContent='下班打卡'; ey.textContent=`上班中 · 打卡時間 ${hasIn.time}`;
+  } else {
+    btn.className='btn-punch state-in'; btn.textContent='上班打卡'; ey.textContent='Clock In';
+  }
+}
+
+function doPunch(){
+  const tr=todayRecs(), hasIn=tr.find(r=>r.type==='in'), hasOut=tr.find(r=>r.type==='out');
+  if(hasIn&&hasOut) return;
+  const now=new Date(), type=hasIn?'out':'in';
+  const rec={ eid:me, name:EMP[me].name, date:todayKey(), time:fmtT(now), type, ts:now.getTime() };
+  records.push(rec); localStorage.setItem('hs_punch',JSON.stringify(records));
+
+  const ov=document.getElementById('overlay'), iw=document.getElementById('res-icon-wrap');
+  document.getElementById('res-icon').textContent=type==='in'?'🟦':'🟥';
+  iw.className='result-icon-wrap '+(type==='in'?'icon-in':'icon-out');
+  const rt=document.getElementById('res-type');
+  rt.textContent=type==='in'?'上班打卡成功':'下班打卡成功'; rt.className='result-punch-type '+(type==='in'?'in':'out');
+  document.getElementById('res-time').textContent=fmtT(now);
+  document.getElementById('res-date').textContent=`${todayKey()}（${WD[now.getDay()]}）`;
+  ov.classList.add('show');
+  renderPunch(); sendToSheets(rec);
+}
+function closeResult(){ document.getElementById('overlay').classList.remove('show'); document.querySelectorAll('.nav-btn')[1].click(); }
+
+function renderRecords(){
+  if(!me) return;
+  const list=records.filter(r=>r.eid===me).sort((a,b)=>b.ts-a.ts);
+  const el=document.getElementById('record-list');
+  if(!list.length){ el.innerHTML='<div class="empty-state">尚無打卡紀錄</div>'; return; }
+  el.innerHTML=list.map(r=>`
+    <div class="record-item">
+      <div class="record-left">
+        <div class="record-dot ${r.type==='in'?'dot-in':'dot-out'}"></div>
+        <div><div class="record-type">${r.type==='in'?'上班打卡':'下班打卡'}</div><div class="record-date">${r.date}</div></div>
+      </div>
+      <div class="record-time">${r.time}</div>
+    </div>`).join('');
+}
+
+function renderLeave(){
+  if(!me) return;
+  const emp=EMP[me];
+  const badges=[
+    { name:'特休',   days:emp.annual,   bg:'#dce7f1', color:'#164067' },
+    { name:'病假',   days:emp.sick,     bg:'#f0efee', color:'#3c3936' },
+    { name:'事假',   days:emp.personal, bg:'#f0efee', color:'#3c3936' },
+    { name:'生理假', days:emp.physio,   bg:'#f2e3e4', color:'#8a4a4e' },
+  ];
+  document.getElementById('leave-badges').innerHTML=badges.map(b=>`
+    <div class="leave-badge" style="background:${b.bg}">
+      <span class="badge-name" style="color:${b.color}">${b.name}</span>
+      <span class="badge-days" style="color:${b.color}">剩餘 <strong>${b.days}</strong> 天</span>
+    </div>`).join('');
+  const t=new Date().toISOString().split('T')[0];
+  document.getElementById('leave-start').value=t;
+  document.getElementById('leave-end').value=t;
+}
+
+function submitLeave(){
+  const type=document.getElementById('leave-type').value, start=document.getElementById('leave-start').value;
+  const end=document.getElementById('leave-end').value, note=document.getElementById('leave-note').value;
+  const msg=document.getElementById('leave-msg');
+  if(!start||!end){ msg.textContent='請填寫請假日期'; msg.className='leave-msg'; return; }
+  if(start>end){ msg.textContent='結束日期不能早於開始日期'; msg.className='leave-msg'; return; }
+  const req={ eid:me, name:EMP[me].name, type, start, end, note, status:'待審核', ts:Date.now() };
+  leaveReqs.push(req); localStorage.setItem('hs_leave',JSON.stringify(leaveReqs));
+  msg.textContent=`✓ ${type}申請已送出（${start}～${end}），待主管審核`;
+  msg.className='leave-msg ok';
+  document.getElementById('leave-note').value='';
+  sendLeaveToSheets(req);
+}
+
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw1KsPKfBtM6DYADYMbAzkqumwe8FHf038054MRHQT8QcasB_WcVoL8MfJTFwEWJCvkxg/exec'; // 之後填入 Google Apps Script URL
+async function sendToSheets(rec){
+  if(!SHEETS_URL) return;
+  try { await fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'punch',data:rec})}); }
+  catch(e){ console.log('pending',e); }
+}
+async function sendLeaveToSheets(req){
+  if(!SHEETS_URL) return;
+  try { await fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'leave',data:req})}); }
+  catch(e){ console.log('pending',e); }
+}
+</script>
+</body>
+</html>
