@@ -877,17 +877,22 @@ async function loadAdmin(){
     ll.innerHTML=pending.map(r=>{
       const days=Math.round((new Date(r.end)-new Date(r.start))/86400000)+1;
       const canReview=session.role>=2||(session.role>=1&&days<=1);
-      return `<div class="leave-req-card">
-        <div class="leave-req-header">
-          <span class="leave-req-name">${r.name}</span>
-          <span class="leave-req-type ltype-${r.type}">${r.type} · ${days}天</span>
-        </div>
-        <div class="leave-req-detail">${r.start}${r.start!==r.end?' ~ '+r.end:''} · ${r.unit||''}${r.note?'<br>說明：'+r.note:''}${r.proofUrl?'<br><a href="'+r.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':''}</div>
-        ${canReview?`<div class="leave-req-actions">
-          <button class="btn-approve" onclick="reviewLeave(${r.rowIdx},'已核准')">✓ 核准</button>
-          <button class="btn-reject" onclick="reviewLeaveReject(${r.rowIdx})">✗ 拒絕</button>
-        </div>`:`<div style="font-size:11px;color:var(--amber);padding:4px 0">⚠ ${days}天假需最高管理者審核</div>`}
-      </div>`;
+      const rid='leave_'+r.rowIdx;
+      return '<div class="leave-req-card">'
+        +'<div class="leave-req-header">'
+        +'<span class="leave-req-name">'+r.name+'</span>'
+        +'<span class="leave-req-type ltype-'+r.type+'">'+r.type+' · '+days+'天</span>'
+        +'</div>'
+        +'<div class="leave-req-detail">'+r.start+(r.start!==r.end?' ~ '+r.end:'')+' · '+(r.unit||'')+(r.note?'<br>說明：'+r.note:'')+(r.proofUrl?'<br><a href="'+r.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':'')+'</div>'
+        +(canReview
+          ?'<div style="margin-bottom:8px"><input type="text" id="'+rid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>'
+          +'<div class="leave-req-actions">'
+          +'<button class="btn-approve" onclick="reviewLeaveWithComment('+r.rowIdx+',\'已核准\',\''+rid+'_comment\')">✓ 核准</button>'
+          +'<button class="btn-reject" onclick="reviewLeaveWithComment('+r.rowIdx+',\'已拒絕\',\''+rid+'_comment\')">✗ 拒絕</button>'
+          +'</div>'
+          :'<div style="font-size:11px;color:var(--amber);padding:4px 0">⚠ '+days+'天假需最高管理者審核</div>'
+        )
+        +'</div>';
     }).join('');
   } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 
@@ -899,18 +904,21 @@ async function loadAdmin(){
     const pending=result.requests||[];
     document.getElementById('pending-patch-count').textContent=pending.length?`（${pending.length}）`:'';
     if(!pending.length){pl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
-    pl.innerHTML=pending.map(r=>`
-      <div class="leave-req-card">
-        <div class="leave-req-header">
-          <span class="leave-req-name">${r.name}</span>
-          <span class="leave-req-type ltype-補卡">${r.type==='上班卡'?'上班補卡':'下班補卡'}</span>
-        </div>
-        <div class="leave-req-detail">${r.date} ${r.time}<br>原因：${r.note}</div>
-        <div class="leave-req-actions">
-          <button class="btn-approve" onclick="reviewPatch(${r.rowIdx},'已核准')">✓ 核准</button>
-          <button class="btn-reject" onclick="reviewPatchReject(${r.rowIdx})">✗ 拒絕</button>
-        </div>
-      </div>`).join('');
+    pl.innerHTML=pending.map(r=>{
+      const pid='patch_'+r.rowIdx;
+      return '<div class="leave-req-card">'
+        +'<div class="leave-req-header">'
+        +'<span class="leave-req-name">'+r.name+'</span>'
+        +'<span class="leave-req-type ltype-補卡">'+(r.type==='上班卡'?'上班補卡':'下班補卡')+'</span>'
+        +'</div>'
+        +'<div class="leave-req-detail">'+r.date+' '+r.time+'<br>原因：'+r.note+'</div>'
+        +'<div style="margin-bottom:8px"><input type="text" id="'+pid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>'
+        +'<div class="leave-req-actions">'
+        +'<button class="btn-approve" onclick="reviewPatchWithComment('+r.rowIdx+',\'已核准\',\''+pid+'_comment\')">✓ 核准</button>'
+        +'<button class="btn-reject" onclick="reviewPatchWithComment('+r.rowIdx+',\'已拒絕\',\''+pid+'_comment\')">✗ 拒絕</button>'
+        +'</div>'
+        +'</div>';
+    }).join('');
   } catch(e){ pl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 
   // 重設密碼
@@ -947,21 +955,21 @@ async function loadAdmin(){
   }
 }
 
-async function reviewLeave(rowIdx,status,reason=''){
-  try{ await api('review_leave',{rowIdx,status,reason}); showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge(); }
+async function reviewLeaveWithComment(rowIdx, status, commentId){
+  const comment = document.getElementById(commentId)?.value?.trim()||'';
+  if(status==='已拒絕' && !comment){
+    showToast('⚠ 拒絕時請填寫審核備註'); return;
+  }
+  try{ await api('review_leave',{rowIdx,status,reason:comment}); showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge(); }
   catch(e){ showToast('⚠ '+e.message); }
 }
-function reviewLeaveReject(rowIdx){
-  const reason=prompt('請輸入拒絕原因（選填）：')||'';
-  reviewLeave(rowIdx,'已拒絕',reason);
-}
-async function reviewPatch(rowIdx,status,reason=''){
-  try{ await api('review_patch',{rowIdx,status,reason}); showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge(); }
+async function reviewPatchWithComment(rowIdx, status, commentId){
+  const comment = document.getElementById(commentId)?.value?.trim()||'';
+  if(status==='已拒絕' && !comment){
+    showToast('⚠ 拒絕時請填寫審核備註'); return;
+  }
+  try{ await api('review_patch',{rowIdx,status,reason:comment}); showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge(); }
   catch(e){ showToast('⚠ '+e.message); }
-}
-function reviewPatchReject(rowIdx){
-  const reason=prompt('請輸入拒絕原因（選填）：')||'';
-  reviewPatch(rowIdx,'已拒絕',reason);
 }
 async function promptResetPw(eid,name){
   const newPw=prompt(`重設 ${name} 的密碼（至少6碼，留空則重設為員編後三碼）：`);
