@@ -215,26 +215,88 @@
 <div class="screen" id="screen-leave">
   <div class="section-label">假別餘額</div>
   <div class="card"><div class="card-inner" id="leave-badges"></div></div>
+
+  <!-- 請假規範 -->
+  <div class="section-label">請假規範</div>
+  <div class="card">
+    <div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--deep-blue);margin-top:5px;flex-shrink:0"></div>
+        <div style="font-size:12.5px;color:var(--text)"><strong>特休</strong>：最小單位 <strong>半天</strong>，需提前 <strong>3個工作天</strong> 申請；連續2天以上需提前 <strong>7個工作天</strong> 申請</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--rose);margin-top:5px;flex-shrink:0"></div>
+        <div style="font-size:12.5px;color:var(--text)"><strong>病假</strong>：最小單位 <strong>1小時</strong>，當天申請需上傳 <strong>當日看診證明</strong>（必填）</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--warm-gray);margin-top:5px;flex-shrink:0"></div>
+        <div style="font-size:12.5px;color:var(--text)"><strong>事假</strong>：最小單位 <strong>1小時</strong>，需提前 <strong>3個工作天</strong> 申請；連續2天以上需提前 <strong>7個工作天</strong> 申請</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:6px;height:6px;border-radius:50%;background:#b9a8c4;margin-top:5px;flex-shrink:0"></div>
+        <div style="font-size:12.5px;color:var(--text)"><strong>生理假</strong>：最小單位 <strong>1小時</strong>，當天申請即可；每月限1天，全年前3天不併入病假</div>
+      </div>
+    </div>
+  </div>
+
   <div class="section-label">送出請假申請</div>
   <div class="card">
     <div class="card-inner">
       <div class="leave-form">
         <div>
           <div class="form-label-sm">假別</div>
-          <select id="leave-type">
-            <option value="特休">特休</option>
-            <option value="病假">病假（半薪）</option>
-            <option value="事假">事假（無薪）</option>
-            <option value="生理假">生理假（半薪）</option>
+          <select id="leave-type" onchange="onLeaveTypeChange()">
+            <option value="特休">特休（最小半天）</option>
+            <option value="病假">病假（最小1小時）</option>
+            <option value="事假">事假（最小1小時）</option>
+            <option value="生理假">生理假（最小1小時）</option>
           </select>
         </div>
         <div class="date-row">
           <div><div class="form-label-sm">開始日期</div><input type="date" id="leave-start"></div>
           <div><div class="form-label-sm">結束日期</div><input type="date" id="leave-end"></div>
         </div>
+        <!-- 時數欄（非特休才顯示） -->
+        <div id="hours-row" style="display:none">
+          <div class="form-label-sm">請假時數</div>
+          <select id="leave-hours" style="width:100%;padding:12px 14px;font-size:14px;font-family:inherit;border:1.5px solid var(--border);border-radius:var(--radius-md);background:var(--bg);color:var(--text);outline:none;-webkit-appearance:none">
+            <option value="1">1 小時</option>
+            <option value="2">2 小時</option>
+            <option value="3">3 小時</option>
+            <option value="4">4 小時</option>
+            <option value="5">5 小時</option>
+            <option value="6">6 小時</option>
+            <option value="7">7 小時</option>
+            <option value="8">8 小時（全天）</option>
+          </select>
+        </div>
+        <!-- 特休半天選項 -->
+        <div id="halfday-row" style="display:none">
+          <div class="form-label-sm">請假單位</div>
+          <select id="leave-halfday" style="width:100%;padding:12px 14px;font-size:14px;font-family:inherit;border:1.5px solid var(--border);border-radius:var(--radius-md);background:var(--bg);color:var(--text);outline:none;-webkit-appearance:none">
+            <option value="全天">全天</option>
+            <option value="上午">上午（半天）</option>
+            <option value="下午">下午（半天）</option>
+          </select>
+        </div>
         <div>
           <div class="form-label-sm">說明（選填）</div>
           <input type="text" id="leave-note" placeholder="例：看診、家庭因素…">
+        </div>
+        <!-- 病假證明上傳（病假才顯示） -->
+        <div id="proof-row" style="display:none">
+          <div class="form-label-sm">看診證明 <span style="color:var(--rose)">*必填</span></div>
+          <div style="border:1.5px dashed var(--border);border-radius:var(--radius-md);padding:16px;text-align:center;cursor:pointer;background:var(--bg)" onclick="document.getElementById('proof-file').click()">
+            <div id="proof-preview" style="display:none;margin-bottom:8px">
+              <img id="proof-img" style="max-width:100%;max-height:120px;border-radius:8px;object-fit:contain">
+            </div>
+            <div id="proof-placeholder">
+              <div style="font-size:22px;margin-bottom:4px">📎</div>
+              <div style="font-size:12px;color:var(--text-soft)">點擊上傳看診證明<br>支援 JPG、PNG、PDF</div>
+            </div>
+            <input type="file" id="proof-file" accept="image/*,.pdf" style="display:none" onchange="onProofSelected(this)">
+          </div>
+          <div class="form-label-sm" id="proof-name" style="margin-top:6px;color:var(--deep-blue)"></div>
         </div>
         <button class="btn-submit" onclick="submitLeave()">送出申請</button>
         <div class="leave-msg" id="leave-msg"></div>
@@ -407,6 +469,38 @@ function renderRecords(){
     </div>`).join('');
 }
 
+let proofFileData = null; // base64 of proof file
+
+function onLeaveTypeChange(){
+  const type = document.getElementById('leave-type').value;
+  document.getElementById('proof-row').style.display   = type==='病假' ? 'block' : 'none';
+  document.getElementById('halfday-row').style.display = type==='特休' ? 'block' : 'none';
+  document.getElementById('hours-row').style.display   = (type==='病假'||type==='事假'||type==='生理假') ? 'block' : 'none';
+  // reset proof
+  proofFileData=null;
+  document.getElementById('proof-name').textContent='';
+  document.getElementById('proof-preview').style.display='none';
+  document.getElementById('proof-placeholder').style.display='block';
+  document.getElementById('leave-msg').textContent='';
+}
+
+function onProofSelected(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const base64 = e.target.result.split(',')[1];
+    proofFileData = { base64, mimeType: file.type, name: file.name };
+    document.getElementById('proof-name').textContent = `已選擇：${file.name}`;
+    if(file.type.startsWith('image/')){
+      document.getElementById('proof-img').src = e.target.result;
+      document.getElementById('proof-preview').style.display='block';
+      document.getElementById('proof-placeholder').style.display='none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
 function renderLeave(){
   if(!me) return;
   const emp=EMP[me];
@@ -424,20 +518,61 @@ function renderLeave(){
   const t=new Date().toISOString().split('T')[0];
   document.getElementById('leave-start').value=t;
   document.getElementById('leave-end').value=t;
+  onLeaveTypeChange(); // 初始化顯示狀態
 }
 
-function submitLeave(){
-  const type=document.getElementById('leave-type').value, start=document.getElementById('leave-start').value;
-  const end=document.getElementById('leave-end').value, note=document.getElementById('leave-note').value;
-  const msg=document.getElementById('leave-msg');
+async function submitLeave(){
+  const type  = document.getElementById('leave-type').value;
+  const start = document.getElementById('leave-start').value;
+  const end   = document.getElementById('leave-end').value;
+  const note  = document.getElementById('leave-note').value;
+  const msg   = document.getElementById('leave-msg');
+  const hours = document.getElementById('leave-hours')?.value || '8';
+  const halfday = document.getElementById('leave-halfday')?.value || '全天';
+
   if(!start||!end){ msg.textContent='請填寫請假日期'; msg.className='leave-msg'; return; }
   if(start>end){ msg.textContent='結束日期不能早於開始日期'; msg.className='leave-msg'; return; }
-  const req={ eid:me, name:EMP[me].name, type, start, end, note, status:'待審核', ts:Date.now() };
+
+  // 病假強制上傳證明
+  if(type==='病假' && !proofFileData){
+    msg.textContent='⚠ 病假需上傳看診證明，請選擇檔案'; msg.className='leave-msg'; return;
+  }
+
+  msg.textContent='送出中…'; msg.className='leave-msg';
+
+  let proofUrl = '';
+  // 上傳病假證明到 Google Drive
+  if(type==='病假' && proofFileData){
+    try {
+      const d = new Date();
+      const monthStr = `${d.getFullYear()}-${f2(d.getMonth()+1)}`;
+      const fileName = `${me}_${EMP[me].name}_${start.replace(/\//g,'')}.${proofFileData.name.split('.').pop()}`;
+      const resp = await fetch(SHEETS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'upload_proof',
+          data: { fileBase64: proofFileData.base64, mimeType: proofFileData.mimeType, fileName, month: monthStr }
+        })
+      });
+      const result = await resp.json();
+      if(result.status==='ok') proofUrl = result.fileUrl;
+    } catch(e){ console.log('upload err',e); }
+  }
+
+  const unit = type==='特休' ? halfday : `${hours}小時`;
+  const req = { eid:me, name:EMP[me].name, type, start, end, note, unit, proofUrl, status:'待審核', ts:Date.now() };
   leaveReqs.push(req); localStorage.setItem('hs_leave',JSON.stringify(leaveReqs));
-  msg.textContent=`✓ ${type}申請已送出（${start}～${end}），待主管審核`;
+
+  msg.textContent=`✓ ${type}申請已送出（${start}${start!==end?'～'+end:''}，${unit}），待主管審核`;
   msg.className='leave-msg ok';
   document.getElementById('leave-note').value='';
-  sendLeaveToSheets(req);
+  proofFileData=null;
+  document.getElementById('proof-name').textContent='';
+  document.getElementById('proof-preview').style.display='none';
+  document.getElementById('proof-placeholder').style.display='block';
+
+  sendLeaveToSheets({...req});
 }
 
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw1KsPKfBtM6DYADYMbAzkqumwe8FHf038054MRHQT8QcasB_WcVoL8MfJTFwEWJCvkxg/exec'; // 之後填入 Google Apps Script URL
