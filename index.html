@@ -456,10 +456,15 @@ async function api(action, data={}, useToken=true){
   if(useToken && session?.token) payload.token = session.token;
   const resp = await fetch(API, {
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    redirect:'follow',
+    headers:{'Content-Type':'text/plain'},
     body: JSON.stringify(payload),
   });
-  const result = await resp.json();
+  const text = await resp.text();
+  let result;
+  try { result = JSON.parse(text); }
+  catch(e) { throw new Error('伺服器回應格式錯誤'); }
+  // result already set above
   if(result.status === 'error') throw new Error(result.message);
   return result;
 }
