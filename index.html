@@ -595,7 +595,17 @@ async function api(action, data={}, useToken=true){
   // 用 GET + callback 避免 CORS
   const encoded = encodeURIComponent(JSON.stringify(payload));
   const url = API + '?payload=' + encoded + '&cb=' + Date.now();
-  const resp = await fetch(url, { method:'GET', redirect:'follow' });
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), 20000);
+  let resp;
+  try {
+    resp = await fetch(url, { method:'GET', redirect:'follow', signal: controller.signal });
+  } catch(e) {
+    if(e.name==='AbortError') throw new Error('連線逾時，請檢查網路後再試一次');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await resp.text();
   let result;
   try { result = JSON.parse(text); }
@@ -816,13 +826,23 @@ async function doPunch(type){
 
 function closeResult(){document.getElementById('overlay').classList.remove('show');document.querySelectorAll('.nav-btn')[1].click();}
 
+// 補卡／銷卡／銷假三個表單一次只顯示一個，避免開了一個又開另一個時，後開的表單被擠到畫面外看起來像沒反應
+function closeOtherQuickForms(exceptId){
+  ['patch-form','cancel-punch-form','cancel-leave-form'].forEach(id=>{
+    if(id!==exceptId) document.getElementById(id).style.display='none';
+  });
+}
+
 // ── 銷卡 ──────────────────────────────────────────────────────
 function toggleCancelPunchForm(){
   const f=document.getElementById('cancel-punch-form');
-  f.style.display=f.style.display==='none'?'block':'none';
+  const opening=f.style.display==='none';
+  closeOtherQuickForms('cancel-punch-form');
+  f.style.display=opening?'block':'none';
   if(f.style.display==='block'){
     document.getElementById('cancel-punch-date').value=new Date().toISOString().split('T')[0];
     document.getElementById('cancel-punch-msg').textContent='';
+    f.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 }
 async function submitCancelPunch(){
@@ -843,8 +863,11 @@ async function submitCancelPunch(){
 // ── 銷假 ──────────────────────────────────────────────────────
 async function toggleCancelLeaveForm(){
   const f=document.getElementById('cancel-leave-form');
-  f.style.display=f.style.display==='none'?'block':'none';
+  const opening=f.style.display==='none';
+  closeOtherQuickForms('cancel-leave-form');
+  f.style.display=opening?'block':'none';
   if(f.style.display==='block'){
+    f.scrollIntoView({behavior:'smooth',block:'nearest'});
     document.getElementById('cancel-leave-msg').textContent='';
     // 載入員工的請假紀錄供選擇
     try{
@@ -895,8 +918,13 @@ async function getApprovedOvertimeToday(type){
 // ── 補卡 ──────────────────────────────────────────────────────
 function togglePatchForm(){
   const f=document.getElementById('patch-form');
-  f.style.display=f.style.display==='none'?'block':'none';
-  if(f.style.display==='block') document.getElementById('patch-date').value=new Date().toISOString().split('T')[0];
+  const opening=f.style.display==='none';
+  closeOtherQuickForms('patch-form');
+  f.style.display=opening?'block':'none';
+  if(f.style.display==='block'){
+    document.getElementById('patch-date').value=new Date().toISOString().split('T')[0];
+    f.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
 }
 async function submitPatch(){
   const date=document.getElementById('patch-date').value;
@@ -1212,11 +1240,23 @@ async function changePassword(){
 }
 
 // ── 管理後台 ─────────────────────────────────────────────────
-async function loadAdmin(){
+// 每個區塊各自獨立平行載入，避免其中一個卡住／變慢時拖累其他區塊(例如重設密碼、權限設定、打卡地點設定曾因此永遠不會執行到)
+function loadAdmin(){
   if(!session||session.role<1)return;
   document.getElementById('super-admin-section').style.display=session.role>=2?'block':'none';
+  loadAdminAttendance();
+  loadAdminLeaveList();
+  loadAdminPatchList();
+  loadAdminOvertimeList();
+  loadAdminResetPw();
+  if(session.role>=2){
+    loadAdminRoles();
+    loadAdminGpsConfig();
+  }
+}
 
-  // 今日出勤（從後端撈所有人今日打卡）
+// 今日出勤（從後端撈所有人今日打卡）
+async function loadAdminAttendance(){
   const attEl=document.getElementById('admin-attendance');
   try {
     const [empResult, attResult] = await Promise.all([
@@ -1246,8 +1286,10 @@ async function loadAdmin(){
       }).join('');
     }
   } catch(e){ attEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
 
-  // 待審核請假
+// 待審核請假
+async function loadAdminLeaveList(){
   const ll=document.getElementById('admin-leave-list');
   ll.innerHTML='<div class="empty-state">載入中…</div>';
   try {
@@ -1276,8 +1318,10 @@ async function loadAdmin(){
         +'</div>';
     }).join('');
   } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
 
-  // 待審核補卡
+// 待審核補卡
+async function loadAdminPatchList(){
   const pl=document.getElementById('admin-patch-list');
   pl.innerHTML='<div class="empty-state">載入中…</div>';
   try {
@@ -1301,8 +1345,10 @@ async function loadAdmin(){
         +'</div>';
     }).join('');
   } catch(e){ pl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
 
-  // 待審核加班
+// 待審核加班
+async function loadAdminOvertimeList(){
   const otl=document.getElementById('admin-ot-list');
   otl.innerHTML='<div class="empty-state">載入中…</div>';
   try {
@@ -1331,9 +1377,12 @@ async function loadAdmin(){
       }).join('');
     }
   } catch(e){ otl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
 
-  // 重設密碼
+// 重設密碼
+async function loadAdminResetPw(){
   const rpEl=document.getElementById('admin-reset-pw');
+  rpEl.innerHTML='<div class="empty-state">載入中…</div>';
   try {
     const result=await api('get_employees');
     rpEl.innerHTML=(result.employees||[]).map(e=>`
@@ -1341,40 +1390,44 @@ async function loadAdmin(){
         <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.title}</div></div>
         <button onclick="promptResetPw('${e.eid}','${e.name}')" style="font-size:11px;font-weight:700;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-family:inherit">重設密碼</button>
       </div>`).join('');
-  } catch(e){ rpEl.innerHTML=`<div class="empty-state">載入失敗</div>`; }
+  } catch(e){ rpEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
 
-  // 權限設定（Level 2 only）
-  if(session.role>=2){
-    const roleLabels=['員工','部門主管','最高管理者'];
-    try {
-      const result=await api('get_employees');
-      document.getElementById('admin-roles').innerHTML=(result.employees||[]).map(e=>`
-        <div class="settings-row">
-          <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.title}</div></div>
-          <select onchange="setRole('${e.eid}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit">
-            <option value="0" ${(e.role||0)===0?'selected':''}>員工</option>
-            <option value="1" ${(e.role||0)===1?'selected':''}>部門主管</option>
-            <option value="2" ${(e.role||0)===2?'selected':''}>最高管理者</option>
-          </select>
-        </div>`).join('');
-    } catch(e){}
-    // GPS 設定 — 從後端讀取
-    try {
-      const cfgResult = await api('get_settings');
-      const cfg = cfgResult.settings || {};
-      document.getElementById('cfg-addr').value = cfg['辦公室地址'] || '台北市中山區民生東路二段151號8樓';
-      document.getElementById('cfg-lat').value  = cfg['辦公室緯度'] || '25.0588';
-      document.getElementById('cfg-lng').value  = cfg['辦公室經度'] || '121.5395';
-      document.getElementById('cfg-radius').value = cfg['圍欄半徑(m)'] || '100';
-      gpsConfig.lat = parseFloat(cfg['辦公室緯度'] || '25.0588');
-      gpsConfig.lng = parseFloat(cfg['辦公室經度'] || '121.5395');
-      gpsConfig.radius = parseInt(cfg['圍欄半徑(m)'] || '100');
-    } catch(e) {
-      document.getElementById('cfg-addr').value = gpsConfig.addr || '台北市中山區民生東路二段151號8樓';
-      document.getElementById('cfg-lat').value  = gpsConfig.lat;
-      document.getElementById('cfg-lng').value  = gpsConfig.lng;
-      document.getElementById('cfg-radius').value = gpsConfig.radius;
-    }
+// 權限設定（Level 2 only）
+async function loadAdminRoles(){
+  const roleEl=document.getElementById('admin-roles');
+  roleEl.innerHTML='<div class="empty-state">載入中…</div>';
+  try {
+    const result=await api('get_employees');
+    roleEl.innerHTML=(result.employees||[]).map(e=>`
+      <div class="settings-row">
+        <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.title}</div></div>
+        <select onchange="setRole('${e.eid}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit">
+          <option value="0" ${(e.role||0)===0?'selected':''}>員工</option>
+          <option value="1" ${(e.role||0)===1?'selected':''}>部門主管</option>
+          <option value="2" ${(e.role||0)===2?'selected':''}>最高管理者</option>
+        </select>
+      </div>`).join('');
+  } catch(e){ roleEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
+// 打卡地點設定 — 從後端讀取
+async function loadAdminGpsConfig(){
+  try {
+    const cfgResult = await api('get_settings');
+    const cfg = cfgResult.settings || {};
+    document.getElementById('cfg-addr').value = cfg['辦公室地址'] || '台北市中山區民生東路二段151號8樓';
+    document.getElementById('cfg-lat').value  = cfg['辦公室緯度'] || '25.0588';
+    document.getElementById('cfg-lng').value  = cfg['辦公室經度'] || '121.5395';
+    document.getElementById('cfg-radius').value = cfg['圍欄半徑(m)'] || '100';
+    gpsConfig.lat = parseFloat(cfg['辦公室緯度'] || '25.0588');
+    gpsConfig.lng = parseFloat(cfg['辦公室經度'] || '121.5395');
+    gpsConfig.radius = parseInt(cfg['圍欄半徑(m)'] || '100');
+  } catch(e) {
+    document.getElementById('cfg-addr').value = gpsConfig.addr || '台北市中山區民生東路二段151號8樓';
+    document.getElementById('cfg-lat').value  = gpsConfig.lat;
+    document.getElementById('cfg-lng').value  = gpsConfig.lng;
+    document.getElementById('cfg-radius').value = gpsConfig.radius;
   }
 }
 
