@@ -198,7 +198,10 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div class="logo-mark"><span>她</span></div>
     <div><div class="logo-cn">她勢行銷</div><div class="logo-en">HerStrategy Marketing</div></div>
   </div>
-  <div class="date-chip" id="header-date"></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="date-chip" id="header-date"></div>
+    <button id="header-logout-btn" onclick="doLogout()" style="display:none;font-size:11px;font-weight:700;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-soft);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">登出</button>
+  </div>
 </div>
 
 <!-- ══ 登入 ══ -->
@@ -251,9 +254,12 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <button class="btn-punch state-in" id="btn-clock-in" onclick="doPunch('in')"><span class="punch-icon">▲</span><span>上班打卡</span></button>
       <button class="btn-punch state-out" id="btn-clock-out" onclick="doPunch('out')"><span class="punch-icon">▼</span><span>下班打卡</span></button>
     </div>
+  </div></div>
+
+  <div class="section-label">補卡 / 銷卡申請</div>
+  <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
     <button class="btn-secondary" onclick="togglePatchForm()">📝 申請補卡</button>
     <button class="btn-secondary" onclick="toggleCancelPunchForm()">🗑 申請銷卡</button>
-    <button class="btn-secondary" onclick="toggleCancelLeaveForm()">🗑 申請銷假</button>
   </div></div>
   <div class="card" id="patch-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
     <div style="font-size:13px;font-weight:700">📝 補卡申請</div>
@@ -277,25 +283,10 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <button class="btn-secondary" onclick="toggleCancelPunchForm()">取消</button>
     <div class="form-msg" id="cancel-punch-msg"></div>
   </div></div>
-
-  <!-- 銷假申請 -->
-  <div class="card" id="cancel-leave-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
-    <div style="font-size:13px;font-weight:700">🗑 銷假申請</div>
-    <div style="font-size:12px;color:var(--text-soft);background:var(--rose-lo);padding:10px 12px;border-radius:10px">銷假申請需於請假日期前 <strong>24小時</strong> 提出，逾時不受理。</div>
-    <div><div class="form-label-sm">要銷除的假別</div>
-      <select id="cancel-leave-id" class="form-select">
-        <option value="">請先載入請假紀錄…</option>
-      </select>
-    </div>
-    <div><div class="form-label-sm">原因 <span class="req">*</span></div><input type="text" id="cancel-leave-note" class="form-input" placeholder="請說明銷假原因"></div>
-    <button class="btn-primary" style="background:var(--rose)" onclick="submitCancelLeave()">送出銷假申請</button>
-    <button class="btn-secondary" onclick="toggleCancelLeaveForm()">取消</button>
-    <div class="form-msg" id="cancel-leave-msg"></div>
-  </div></div>
   <div class="nav-spacer"></div>
 </div>
 
-<!-- ══ 紀錄 ══ -->
+<!-- ══ 出勤總覽 ══ -->
 <div class="screen" id="screen-records">
   <div class="mini-profile" id="mini-screen-records">
     <div class="mini-av" id="mini-av-screen-records"></div>
@@ -387,6 +378,25 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   </div></div>
   <div class="section-label">我的請假紀錄</div>
   <div class="card"><div id="my-leave-list"><div class="empty-state">載入中…</div></div></div>
+
+  <div class="section-label">申請銷假</div>
+  <div class="card"><div class="card-inner">
+    <button class="btn-secondary" onclick="toggleCancelLeaveForm()">🗑 申請銷假</button>
+  </div></div>
+  <div class="card" id="cancel-leave-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:13px;font-weight:700">🗑 銷假申請</div>
+    <div style="font-size:12px;color:var(--text-soft);background:var(--rose-lo);padding:10px 12px;border-radius:10px">銷假申請需於請假日期前 <strong>24小時</strong> 提出，逾時不受理。</div>
+    <div><div class="form-label-sm">要銷除的假別</div>
+      <select id="cancel-leave-id" class="form-select">
+        <option value="">請先載入請假紀錄…</option>
+      </select>
+    </div>
+    <div><div class="form-label-sm">原因 <span class="req">*</span></div><input type="text" id="cancel-leave-note" class="form-input" placeholder="請說明銷假原因"></div>
+    <button class="btn-primary" style="background:var(--rose)" onclick="submitCancelLeave()">送出銷假申請</button>
+    <button class="btn-secondary" onclick="toggleCancelLeaveForm()">取消</button>
+    <div class="form-msg" id="cancel-leave-msg"></div>
+  </div></div>
+
   <div class="section-label">我的補卡紀錄</div>
   <div class="card"><div id="my-patch-list"><div class="empty-state">載入中…</div></div></div>
   <div class="nav-spacer"></div>
@@ -472,6 +482,12 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div style="font-size:16px;font-weight:800" id="profile-big-name"></div>
     <div style="font-size:12px;color:var(--text-soft);margin-top:3px" id="profile-big-meta"></div>
   </div></div>
+  <div class="section-label">歷史紀錄查詢</div>
+  <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+    <div><div class="form-label-sm">月份</div><input type="month" id="my-history-month" class="form-input" onchange="loadMyHistory()"></div>
+  </div></div>
+  <div id="my-history-list"><div class="card"><div class="empty-state">請選擇月份</div></div></div>
+
   <div class="section-label">修改密碼</div>
   <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
     <div><div class="form-label-sm">目前密碼</div><input type="password" id="pw-current" class="form-input" placeholder="輸入目前密碼"></div>
@@ -607,7 +623,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
 
 <nav class="bottom-nav" id="bottom-nav">
   <button class="nav-btn active" onclick="switchTab('punch',this)"><span class="nav-icon">⏱</span><span class="nav-label">打卡</span></button>
-  <button class="nav-btn" onclick="switchTab('records',this)"><span class="nav-icon">📋</span><span class="nav-label">紀錄</span></button>
+  <button class="nav-btn" onclick="switchTab('records',this)"><span class="nav-icon">📋</span><span class="nav-label">總覽</span></button>
   <button class="nav-btn" onclick="switchTab('leave',this)"><span class="nav-icon">🗓</span><span class="nav-label">請假</span></button>
   <button class="nav-btn" onclick="switchTab('overtime',this)"><span class="nav-icon">⏰</span><span class="nav-label">加班</span></button>
   <button class="nav-btn" onclick="switchTab('profile',this)"><span class="nav-icon">👤</span><span class="nav-label">個人</span></button>
@@ -745,6 +761,7 @@ async function doLogin(){
     saveSession(result);
     errEl.style.display='none';
     document.getElementById('bottom-nav').classList.add('visible');
+    document.getElementById('header-logout-btn').style.display='block';
     if(result.role>=1) document.getElementById('nav-admin').style.display='flex';
     if(result.firstLogin) document.getElementById('first-login-banner').style.display='block';
     showScreen('punch'); renderPunch(); startGPS();
@@ -758,9 +775,11 @@ async function doLogin(){
 }
 
 function doLogout(){
+  if(!confirm('確定要登出嗎？'))return;
   clearSession(); stopGPS(); currentGPS=null;
   document.getElementById('bottom-nav').classList.remove('visible');
   document.getElementById('nav-admin').style.display='none';
+  document.getElementById('header-logout-btn').style.display='none';
   document.getElementById('first-login-banner').style.display='none';
   document.getElementById('inp-id').value=''; document.getElementById('inp-pw').value='';
   showScreen('login');
@@ -919,9 +938,9 @@ function showResultSheet({icon, iconClass, typeText, typeClass, big, sub, loc, d
   ov.classList.add('show');
 }
 
-// 補卡／銷卡／銷假三個表單一次只顯示一個，避免開了一個又開另一個時，後開的表單被擠到畫面外看起來像沒反應
+// 補卡／銷卡表單一次只顯示一個，避免開了一個又開另一個時，後開的表單被擠到畫面外看起來像沒反應
 function closeOtherQuickForms(exceptId){
-  ['patch-form','cancel-punch-form','cancel-leave-form'].forEach(id=>{
+  ['patch-form','cancel-punch-form'].forEach(id=>{
     if(id!==exceptId) document.getElementById(id).style.display='none';
   });
 }
@@ -964,7 +983,6 @@ async function submitCancelPunch(){
 async function toggleCancelLeaveForm(){
   const f=document.getElementById('cancel-leave-form');
   const opening=f.style.display==='none';
-  closeOtherQuickForms('cancel-leave-form');
   f.style.display=opening?'block':'none';
   if(f.style.display==='block'){
     f.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -1236,9 +1254,10 @@ async function loadLeave(){
   const ll=document.getElementById('my-leave-list');
   ll.innerHTML='<div class="empty-state">載入中…</div>';
   try {
+    const curMonth=todayKey().slice(0,7);
     const result=await api('get_leave_requests');
-    const list=(result.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
-    if(!list.length){ll.innerHTML='<div class="empty-state">尚無請假紀錄</div>';return;}
+    const list=(result.requests||[]).filter(r=>r.start.startsWith(curMonth)||r.end.startsWith(curMonth)).sort((a,b)=>b.rowIdx-a.rowIdx);
+    if(!list.length){ll.innerHTML='<div class="empty-state">本月尚無請假紀錄，過去紀錄請至「個人」頁籤查詢</div>';return;}
     const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
     ll.innerHTML=list.map(r=>{
       const days=r.end?Math.round((new Date(r.end)-new Date(r.start))/86400000)+1:1;
@@ -1263,9 +1282,10 @@ async function loadLeave(){
   const pl=document.getElementById('my-patch-list');
   pl.innerHTML='<div class="empty-state">載入中…</div>';
   try {
+    const curMonth=todayKey().slice(0,7);
     const presult=await api('get_patch_requests');
-    const myPatches=(presult.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
-    if(!myPatches.length){pl.innerHTML='<div class="empty-state">尚無補卡紀錄</div>';return;}
+    const myPatches=(presult.requests||[]).filter(r=>r.date.startsWith(curMonth)).sort((a,b)=>b.rowIdx-a.rowIdx);
+    if(!myPatches.length){pl.innerHTML='<div class="empty-state">本月尚無補卡紀錄，過去紀錄請至「個人」頁籤查詢</div>';return;}
     const psc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
     pl.innerHTML=myPatches.map(r=>`
       <div class="leave-req-card">
@@ -1618,16 +1638,48 @@ async function populateEmpQuerySelect(){
 let empHistoryCache=null;
 let empHistoryExpanded={punch:false,leave:false,ot:false};
 let empHistoryEditing=null; // {kind:'punch'|'leave', rowIdx}
+let empHistoryContainerId='emp-history-list'; // 管理頁的員工查詢跟個人頁的歷史查詢共用同一套渲染邏輯，用這個記住目前是哪一個在用
 const EMP_HIST_SC={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
 
 async function loadEmpHistory(){
   const eid=document.getElementById('emp-query-eid').value;
   const monthVal=document.getElementById('emp-query-month').value; // yyyy-MM
-  const listEl=document.getElementById('emp-history-list');
+  empHistoryContainerId='emp-history-list';
+  const listEl=document.getElementById(empHistoryContainerId);
   if(!eid||!monthVal){empHistoryCache=null;listEl.innerHTML='<div class="card"><div class="empty-state">請選擇員工與月份</div></div>';return;}
   const month=monthVal.replace('-','/');
   listEl.innerHTML='<div class="card"><div class="empty-state">載入中…</div></div>';
   try{
+    const [attR, leaveR, otR, patchR, cancelR] = await Promise.all([
+      api('get_attendance',{eid,month}),
+      api('get_leave_requests',{eid}),
+      api('get_overtime_requests',{eid,adminView:true}),
+      api('get_patch_requests',{eid}),
+      api('get_cancel_requests',{eid}),
+    ]);
+    empHistoryCache={
+      punches:(attR.records||[]).sort((a,b)=>a.date+a.time<b.date+b.time?-1:1),
+      leaves:(leaveR.requests||[]).filter(r=>r.start.startsWith(month)||r.end.startsWith(month)),
+      ots:(otR.requests||[]).filter(r=>r.date.startsWith(month)),
+      patches:(patchR.requests||[]).filter(r=>r.date.startsWith(month)),
+      cancels:(cancelR.requests||[]).filter(r=>r.date.startsWith(month)),
+    };
+    empHistoryExpanded={punch:false,leave:false,ot:false,patch:false,cancel:false};
+    empHistoryEditing=null;
+    renderEmpHistory();
+  }catch(e){ listEl.innerHTML=`<div class="card"><div class="empty-state">載入失敗：${e.message}</div></div>`; }
+}
+
+// 個人頁籤：員工查自己過去月份的完整紀錄（跟員工管理共用同一套 UI）
+async function loadMyHistory(){
+  const monthVal=document.getElementById('my-history-month').value;
+  empHistoryContainerId='my-history-list';
+  const listEl=document.getElementById(empHistoryContainerId);
+  if(!monthVal){empHistoryCache=null;listEl.innerHTML='<div class="card"><div class="empty-state">請選擇月份</div></div>';return;}
+  const month=monthVal.replace('-','/');
+  listEl.innerHTML='<div class="card"><div class="empty-state">載入中…</div></div>';
+  try{
+    const eid=session.eid;
     const [attR, leaveR, otR, patchR, cancelR] = await Promise.all([
       api('get_attendance',{eid,month}),
       api('get_leave_requests',{eid}),
@@ -1665,7 +1717,7 @@ function empHistorySection(kind, icon, label, count, bodyFn){
 }
 
 function renderEmpHistory(){
-  const listEl=document.getElementById('emp-history-list');
+  const listEl=document.getElementById(empHistoryContainerId);
   if(!empHistoryCache){ listEl.innerHTML='<div class="card"><div class="empty-state">請選擇員工與月份</div></div>'; return; }
   const {punches,leaves,ots,patches,cancels}=empHistoryCache;
   listEl.innerHTML =
@@ -2033,9 +2085,10 @@ async function loadOvertime(){
   const ll=document.getElementById('my-ot-list');
   ll.innerHTML='<div class="empty-state">載入中…</div>';
   try {
+    const curMonth=todayKey().slice(0,7);
     const result=await api('get_overtime_requests');
-    const list=(result.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
-    if(!list.length){ll.innerHTML='<div class="empty-state">尚無申請紀錄</div>';return;}
+    const list=(result.requests||[]).filter(r=>r.date.startsWith(curMonth)).sort((a,b)=>b.rowIdx-a.rowIdx);
+    if(!list.length){ll.innerHTML='<div class="empty-state">本月尚無申請紀錄，過去紀錄請至「個人」頁籤查詢</div>';return;}
     const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
     ll.innerHTML=list.map(r=>`
       <div class="leave-req-card">
@@ -2098,6 +2151,7 @@ async function loadAdminBadge(){
 // ── 自動重新登入（若 session 存在）───────────────────────────
 if(session){
   document.getElementById('bottom-nav').classList.add('visible');
+  document.getElementById('header-logout-btn').style.display='block';
   if(session.role>=1) document.getElementById('nav-admin').style.display='flex';
   if(session.firstLogin) document.getElementById('first-login-banner').style.display='block';
   showScreen('punch'); renderPunch(); startGPS(); loadAdminBadge();
