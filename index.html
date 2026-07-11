@@ -671,7 +671,7 @@ async function doPunch(type){
   if(type==='in'&&hasIn){showToast('今日已完成上班打卡');return;}
   if(type==='out'&&hasOut){showToast('今日已完成下班打卡');return;}
   // ── 打卡時間限制 ──
-  const now=new Date(), hm=now.getHours()*60+now.getMinutes();
+  const punchNow=new Date(), hm=punchNow.getHours()*60+punchNow.getMinutes();
   const T0830=8*60+30, T0930=9*60+30, T1800=18*60, T1830=18*60+30;
   if(type==='in'){
     if(hm<=T0830){showToast('⚠ 上班打卡最早 08:31，如需提早上班請先申請');return;}
@@ -1084,8 +1084,8 @@ async function loadAdmin(){
           +'</div>'
           +'<div style="margin-bottom:8px"><input type="text" id="'+oid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填）" style="font-size:12px;padding:9px 12px"></div>'
           +'<div class="leave-req-actions">'
-          +'<button class="btn-approve" onclick="reviewOTWithComment('+r.rowIdx+','已核准',''+oid+'_comment')">✓ 核准</button>'
-          +'<button class="btn-reject" onclick="reviewOTWithComment('+r.rowIdx+','已拒絕',''+oid+'_comment')">✗ 拒絕</button>'
+          +'<button class="btn-approve" onclick="reviewOTWithComment('+r.rowIdx+',\'已核准\',\''+oid+'_comment\')">✓ 核准</button>'
+          +'<button class="btn-reject" onclick="reviewOTWithComment('+r.rowIdx+',\'已拒絕\',\''+oid+'_comment\')">✗ 拒絕</button>'
           +'</div>'
           +'</div>';
       }).join('');
