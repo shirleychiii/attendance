@@ -1219,11 +1219,32 @@ async function loadAdmin(){
   // 今日出勤（從後端撈所有人今日打卡）
   const attEl=document.getElementById('admin-attendance');
   try {
-    const result=await api('get_attendance',{eid:'all',month:todayKey().slice(0,7)});
+    const [empResult, attResult] = await Promise.all([
+      api('get_employees'),
+      api('get_attendance',{eid:'all',month:todayKey().slice(0,7)}),
+    ]);
+    const employees=empResult.employees||[];
     const today=todayKey();
-    const records=result.records||[];
-    // 這裡前端只能顯示自己能看到的，完整版需要 admin endpoint
-    attEl.innerHTML='<div class="empty-state" style="font-size:12px;padding:16px">全員出勤需管理者 API，稍後更新</div>';
+    const todayRecords=(attResult.records||[]).filter(r=>r.date===today);
+    if(!employees.length){
+      attEl.innerHTML='<div class="empty-state">尚無員工資料</div>';
+    } else {
+      attEl.innerHTML=employees.map(e=>{
+        const hasIn=todayRecords.find(r=>r.eid===e.eid&&r.type==='上班');
+        const hasOut=todayRecords.find(r=>r.eid===e.eid&&r.type==='下班');
+        let tagClass='tag-none', tagText='尚未打卡';
+        if(hasIn&&hasOut){ tagClass='tag-out'; tagText=`${hasIn.time} → ${hasOut.time}`; }
+        else if(hasIn){ tagClass='tag-in'; tagText=`${hasIn.time} 上班`; }
+        return `<div class="emp-row-admin">
+          <div class="emp-avatar-sm">${e.name.slice(-1)}</div>
+          <div class="emp-info">
+            <div class="emp-name-sm">${e.name}${e.nick?'（'+e.nick+'）':''}</div>
+            <div class="emp-meta-sm">${e.eid} · ${e.dept}</div>
+          </div>
+          <div class="punch-status-tag ${tagClass}">${tagText}</div>
+        </div>`;
+      }).join('');
+    }
   } catch(e){ attEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 
   // 待審核請假
