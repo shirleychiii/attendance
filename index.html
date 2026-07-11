@@ -246,6 +246,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <button class="btn-punch state-out" id="btn-clock-out" onclick="doPunch('out')"><span class="punch-icon">▼</span><span>下班打卡</span></button>
     </div>
     <button class="btn-secondary" onclick="togglePatchForm()">📝 申請補卡</button>
+    <button class="btn-secondary" onclick="toggleCancelPunchForm()">🗑 申請銷卡</button>
+    <button class="btn-secondary" onclick="toggleCancelLeaveForm()">🗑 申請銷假</button>
   </div></div>
   <div class="card" id="patch-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
     <div style="font-size:13px;font-weight:700">📝 補卡申請</div>
@@ -256,6 +258,33 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <button class="btn-primary" onclick="submitPatch()">送出補卡申請</button>
     <button class="btn-secondary" onclick="togglePatchForm()">取消</button>
     <div class="form-msg" id="patch-msg"></div>
+  </div></div>
+
+  <!-- 銷卡申請 -->
+  <div class="card" id="cancel-punch-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:13px;font-weight:700">🗑 銷卡申請</div>
+    <div style="font-size:12px;color:var(--text-soft);background:var(--rose-lo);padding:10px 12px;border-radius:10px">請說明打錯卡的日期與原因，主管核准後系統將標記該筆打卡為無效。</div>
+    <div><div class="form-label-sm">銷卡日期</div><input type="date" id="cancel-punch-date" class="form-input"></div>
+    <div><div class="form-label-sm">銷卡類型</div><select id="cancel-punch-type" class="form-select"><option value="in">上班卡</option><option value="out">下班卡</option></select></div>
+    <div><div class="form-label-sm">原因 <span class="req">*</span></div><input type="text" id="cancel-punch-note" class="form-input" placeholder="請說明打錯卡的原因"></div>
+    <button class="btn-primary" style="background:var(--rose)" onclick="submitCancelPunch()">送出銷卡申請</button>
+    <button class="btn-secondary" onclick="toggleCancelPunchForm()">取消</button>
+    <div class="form-msg" id="cancel-punch-msg"></div>
+  </div></div>
+
+  <!-- 銷假申請 -->
+  <div class="card" id="cancel-leave-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:13px;font-weight:700">🗑 銷假申請</div>
+    <div style="font-size:12px;color:var(--text-soft);background:var(--rose-lo);padding:10px 12px;border-radius:10px">銷假申請需於請假日期前 <strong>24小時</strong> 提出，逾時不受理。</div>
+    <div><div class="form-label-sm">要銷除的假別</div>
+      <select id="cancel-leave-id" class="form-select">
+        <option value="">請先載入請假紀錄…</option>
+      </select>
+    </div>
+    <div><div class="form-label-sm">原因 <span class="req">*</span></div><input type="text" id="cancel-leave-note" class="form-input" placeholder="請說明銷假原因"></div>
+    <button class="btn-primary" style="background:var(--rose)" onclick="submitCancelLeave()">送出銷假申請</button>
+    <button class="btn-secondary" onclick="toggleCancelLeaveForm()">取消</button>
+    <div class="form-msg" id="cancel-leave-msg"></div>
   </div></div>
   <div class="nav-spacer"></div>
 </div>
@@ -352,9 +381,10 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <!-- 公司政策說明 -->
   <div class="card"><div class="card-inner" style="background:var(--blue-lo);border-radius:var(--radius-md)">
     <div style="font-size:12px;color:var(--deep-blue);line-height:1.8">
-      <div style="font-weight:700;margin-bottom:4px">📋 加班與提早上班政策</div>
-      為了維護每位夥伴的工作健康與身心調適，公司以<strong>補休為原則</strong>。若有特殊需求，員工亦可依勞基法規定申請加班費，公司尊重每位夥伴的選擇。<br>
-      請提前申請並等待主管核准後，系統才會開放對應時段的打卡。
+      <div style="font-weight:700;margin-bottom:6px">📋 加班與提早上班政策</div>
+      依勞動基準法第35條規定，雇主須於正常工時8小時結束後，給予勞工至少30分鐘之休息，方可認列延長工時（加班）。因此，<strong>加班時數自18:30起算</strong>，申請加班結束時間最早為19:00。<br><br>
+      為了維護每位夥伴的工作健康與身心調適，公司以<strong>補休為原則</strong>，鼓勵大家適時休息、維持良好工作節奏。若有特殊需求，員工亦可依勞基法規定申請加班費，公司尊重每位夥伴的選擇。<br><br>
+      ⚠️ 請於當日 <strong>16:00 前</strong> 提出申請並等待主管核准，系統才會開放對應時段的打卡。
     </div>
   </div></div>
 
@@ -739,6 +769,72 @@ async function doPunch(type){
 }
 
 function closeResult(){document.getElementById('overlay').classList.remove('show');document.querySelectorAll('.nav-btn')[1].click();}
+
+// ── 銷卡 ──────────────────────────────────────────────────────
+function toggleCancelPunchForm(){
+  const f=document.getElementById('cancel-punch-form');
+  f.style.display=f.style.display==='none'?'block':'none';
+  if(f.style.display==='block'){
+    document.getElementById('cancel-punch-date').value=new Date().toISOString().split('T')[0];
+    document.getElementById('cancel-punch-msg').textContent='';
+  }
+}
+async function submitCancelPunch(){
+  const date=document.getElementById('cancel-punch-date').value;
+  const type=document.getElementById('cancel-punch-type').value;
+  const note=document.getElementById('cancel-punch-note').value;
+  const msg=document.getElementById('cancel-punch-msg');
+  if(!date){msg.textContent='請填寫銷卡日期';msg.className='form-msg err';return;}
+  if(!note.trim()){msg.textContent='請填寫銷卡原因';msg.className='form-msg err';return;}
+  try{
+    await api('create_cancel_request',{cancelType:'punch',date,punchType:type,note});
+    msg.textContent='✓ 銷卡申請已送出，待主管審核';msg.className='form-msg ok';
+    document.getElementById('cancel-punch-note').value='';
+    loadAdminBadge();
+  }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
+}
+
+// ── 銷假 ──────────────────────────────────────────────────────
+async function toggleCancelLeaveForm(){
+  const f=document.getElementById('cancel-leave-form');
+  f.style.display=f.style.display==='none'?'block':'none';
+  if(f.style.display==='block'){
+    document.getElementById('cancel-leave-msg').textContent='';
+    // 載入員工的請假紀錄供選擇
+    try{
+      const result=await api('get_leave_requests');
+      const now=new Date();
+      // 只顯示：已核准 + 開始日期距今超過24小時的
+      const eligible=(result.requests||[]).filter(r=>{
+        if(r.status!=='已核准') return false;
+        const startDate=new Date(r.start);
+        const hoursUntil=(startDate-now)/3600000;
+        return hoursUntil>24;
+      });
+      const sel=document.getElementById('cancel-leave-id');
+      if(!eligible.length){
+        sel.innerHTML='<option value="">沒有可銷除的請假（需為已核准且距開始超過24小時）</option>';
+      } else {
+        sel.innerHTML=eligible.map(r=>`<option value="${r.rowIdx}">${r.start}${r.start!==r.end?' ~ '+r.end:''} ${r.type}（${r.unit||''}）</option>`).join('');
+      }
+    }catch(e){
+      document.getElementById('cancel-leave-id').innerHTML='<option value="">載入失敗，請稍後再試</option>';
+    }
+  }
+}
+async function submitCancelLeave(){
+  const rowIdx=document.getElementById('cancel-leave-id').value;
+  const note=document.getElementById('cancel-leave-note').value;
+  const msg=document.getElementById('cancel-leave-msg');
+  if(!rowIdx){msg.textContent='請選擇要銷除的請假';msg.className='form-msg err';return;}
+  if(!note.trim()){msg.textContent='請填寫銷假原因';msg.className='form-msg err';return;}
+  try{
+    await api('create_cancel_request',{cancelType:'leave',leaveRowIdx:rowIdx,note});
+    msg.textContent='✓ 銷假申請已送出，待主管審核';msg.className='form-msg ok';
+    document.getElementById('cancel-leave-note').value='';
+    loadAdminBadge();
+  }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
+}
 
 // 取得今日已核准的加班/提早上班申請
 async function getApprovedOvertimeToday(type){
