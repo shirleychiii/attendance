@@ -283,6 +283,9 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <button class="btn-secondary" onclick="toggleCancelPunchForm()">取消</button>
     <div class="form-msg" id="cancel-punch-msg"></div>
   </div></div>
+
+  <div class="section-label">我的補卡紀錄</div>
+  <div class="card"><div id="my-patch-list"><div class="empty-state">載入中…</div></div></div>
   <div class="nav-spacer"></div>
 </div>
 
@@ -327,6 +330,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <option value="病假">病假</option>
         <option value="事假">事假</option>
         <option value="生理假">生理假</option>
+        <option value="補休">補休</option>
       </select>
       <div class="leave-rule-box" id="leave-rule-box" style="margin-top:8px"></div>
     </div>
@@ -396,9 +400,6 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <button class="btn-secondary" onclick="toggleCancelLeaveForm()">取消</button>
     <div class="form-msg" id="cancel-leave-msg"></div>
   </div></div>
-
-  <div class="section-label">我的補卡紀錄</div>
-  <div class="card"><div id="my-patch-list"><div class="empty-state">載入中…</div></div></div>
   <div class="nav-spacer"></div>
 </div>
 
@@ -521,14 +522,46 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div id="admin-sub-review">
     <div class="section-label">今日全員出勤</div>
     <div class="card"><div id="admin-attendance"><div class="empty-state">載入中…</div></div></div>
+
     <div class="section-label">待審核請假 <span id="pending-leave-count"></span></div>
     <div class="card"><div id="admin-leave-list"><div class="empty-state">載入中…</div></div></div>
+    <div class="card" style="margin-top:8px">
+      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('leave')">
+        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
+        <div style="font-size:10px;color:var(--text-soft)" id="review-history-leave-arrow">▼</div>
+      </div>
+      <div id="review-history-leave" style="display:none"></div>
+    </div>
+
     <div class="section-label">待審核補卡 <span id="pending-patch-count"></span></div>
     <div class="card"><div id="admin-patch-list"><div class="empty-state">載入中…</div></div></div>
+    <div class="card" style="margin-top:8px">
+      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('patch')">
+        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
+        <div style="font-size:10px;color:var(--text-soft)" id="review-history-patch-arrow">▼</div>
+      </div>
+      <div id="review-history-patch" style="display:none"></div>
+    </div>
+
     <div class="section-label">待審核加班/提早上班 <span id="pending-ot-count"></span></div>
     <div class="card"><div id="admin-ot-list"><div class="empty-state">載入中…</div></div></div>
+    <div class="card" style="margin-top:8px">
+      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('ot')">
+        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
+        <div style="font-size:10px;color:var(--text-soft)" id="review-history-ot-arrow">▼</div>
+      </div>
+      <div id="review-history-ot" style="display:none"></div>
+    </div>
+
     <div class="section-label">待審核銷卡/銷假 <span id="pending-cancel-count"></span></div>
     <div class="card"><div id="admin-cancel-list"><div class="empty-state">載入中…</div></div></div>
+    <div class="card" style="margin-top:8px">
+      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('cancel')">
+        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
+        <div style="font-size:10px;color:var(--text-soft)" id="review-history-cancel-arrow">▼</div>
+      </div>
+      <div id="review-history-cancel" style="display:none"></div>
+    </div>
   </div>
 
   <!-- ══ 員工管理 ══ -->
@@ -563,13 +596,12 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="eal-msg"></div>
     </div></div>
     <div id="emp-history-list"><div class="card"><div class="empty-state">請選擇員工與月份</div></div></div>
-
-    <div class="section-label">重設員工密碼</div>
-    <div class="card"><div id="admin-reset-pw"></div></div>
   </div>
 
   <!-- ══ 系統設定 ══ -->
   <div id="admin-sub-settings" style="display:none">
+    <div class="section-label">重設員工密碼</div>
+    <div class="card"><div id="admin-reset-pw"></div></div>
     <div id="super-admin-section" style="display:none">
       <div class="section-label">權限設定</div>
       <div class="card"><div id="admin-roles"></div></div>
@@ -591,8 +623,18 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <button class="btn-primary" onclick="syncNotion()">立即同步</button>
         <div class="form-msg" id="notion-msg"></div>
       </div></div>
+
+      <div class="section-label">薪資設定</div>
+      <div class="card"><div class="card-inner" style="font-size:11px;color:var(--text-soft);line-height:1.6">
+        勞保費／健保費／退休金提繳金額請參考目前正確的薪資單手動輸入——這幾項是政府投保級距表查出來的，系統不會自動試算，避免算錯影響勞健保申報。其餘（在職期間工資、福利金預支、特休/補休時數）會在產生薪資表時自動計算。
+      </div></div>
+      <div class="card"><div id="salary-config-list"><div class="empty-state">載入中…</div></div></div>
+      <div class="card"><div class="card-inner">
+        <button class="btn-primary" onclick="saveSalaryConfig()">儲存薪資設定</button>
+        <div class="form-msg" id="salary-config-msg"></div>
+      </div></div>
     </div>
-    <div id="settings-non-admin-note" style="display:none"><div class="card"><div class="empty-state">系統設定僅限最高管理者查看</div></div></div>
+    <div id="settings-non-admin-note" style="display:none"><div class="card"><div class="empty-state">權限設定／打卡地點設定／Notion 同步僅限最高管理者查看</div></div></div>
   </div>
 
   <!-- ══ 報表匯出 ══ -->
@@ -603,6 +645,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <button class="btn-secondary" onclick="startPdfReview()">📄 產生出勤考核 PDF</button>
       <button class="btn-secondary" onclick="exportLeaveExcel()">📊 匯出請假紀錄 Excel（f2）</button>
       <button class="btn-secondary" id="btn-export-roster" onclick="exportRosterExcel()" style="display:none">🧾 匯出員工名冊（f1 用）</button>
+      <button class="btn-secondary" id="btn-export-payroll" onclick="exportPayrollPdf()" style="display:none">💰 產生薪資明細表 PDF</button>
       <div class="form-msg" id="report-msg"></div>
     </div></div>
     <div class="card" id="pdf-review-panel" style="display:none">
@@ -831,6 +874,7 @@ function renderPunch(){
   badge.textContent=roleNames[session.role]||'員工';
   badge.className='profile-badge '+roleClasses[session.role]||'badge-staff';
   loadTodayPunch();
+  loadMyPatchList();
 }
 
 async function loadTodayPunch(){
@@ -1070,6 +1114,7 @@ async function submitPatch(){
       sub:`${date} · ${type==='in'?'上班卡':'下班卡'} ${time}`,
       loc:'已通知主管審核，結果將以 Email 通知你',
     });
+    loadMyPatchList();
     loadAdminBadge();
   } catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
@@ -1172,6 +1217,7 @@ const LEAVE_RULES={
   '病假':['最小單位：1小時','需上傳當日看診證明','午休 12:00–13:00 不計入請假時數','說明欄位必填'],
   '事假':['最小單位：1小時','1天假需提前 3 個工作天申請','2天以上需提前 7 個工作天申請','午休 12:00–13:00 不計入請假時數','說明欄位必填'],
   '生理假':['最小單位：1小時','每月 1 天，全年前 3 天不併入病假','當日申請可','午休 12:00–13:00 不計入請假時數'],
+  '補休':['最小單位：1小時','時數不可超過目前累計補休餘額','午休 12:00–13:00 不計入請假時數'],
 };
 
 let proofFileData=null;
@@ -1244,6 +1290,14 @@ async function loadLeave(){
         <div class="lb-left"><div class="lb-name" style="color:${b.color}">${b.name}</div><div class="lb-rule" style="color:${b.color}">${b.sub}</div></div>
         <div class="lb-right" style="color:${b.color}">剩餘 <strong>${b.hrs}</strong> 小時</div>
       </div>`).join('');
+    api('get_comp_balance').then(r=>{
+      const bal=r.balance||{earned:0,used:0,remaining:0};
+      badgesEl.insertAdjacentHTML('beforeend', `
+        <div class="leave-badge-item" style="background:#c8e8dc">
+          <div class="lb-left"><div class="lb-name" style="color:#2a7a5a">補休</div><div class="lb-rule" style="color:#2a7a5a">已賺 ${bal.earned} 小時，已用 ${bal.used} 小時</div></div>
+          <div class="lb-right" style="color:#2a7a5a">剩餘 <strong>${bal.remaining}</strong> 小時</div>
+        </div>`);
+    }).catch(()=>{});
   }
   // 設定預設日期
   const t=new Date().toISOString().split('T')[0];
@@ -1277,9 +1331,12 @@ async function loadLeave(){
         +'</div>';
     }).join('');
   } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
 
-  // 我的補卡紀錄
+// 我的補卡紀錄（打卡頁籤）
+async function loadMyPatchList(){
   const pl=document.getElementById('my-patch-list');
+  if(!pl)return;
   pl.innerHTML='<div class="empty-state">載入中…</div>';
   try {
     const curMonth=todayKey().slice(0,7);
@@ -1389,6 +1446,7 @@ function loadAdmin(){
   document.getElementById('btn-emp-add-punch').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-emp-add-leave').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-roster').style.display=session.role>=2?'block':'none';
+  document.getElementById('btn-export-payroll').style.display=session.role>=2?'block':'none';
   loadAdminAttendance();
   loadAdminLeaveList();
   loadAdminPatchList();
@@ -1398,6 +1456,7 @@ function loadAdmin(){
   if(session.role>=2){
     loadAdminRoles();
     loadAdminGpsConfig();
+    loadSalaryConfig();
   }
   populateEmpQuerySelect();
   const thisMonth=todayKey().slice(0,7).replace('/','-');
@@ -1571,6 +1630,58 @@ async function reviewCancelWithComment(rowIdx, status, commentId){
   catch(e){ showToast('⚠ '+e.message); }
 }
 
+// ── 審核中心：已審核歷史（已核准/已拒絕，不再是待審核清單就看不到了）──
+let reviewHistoryExpanded={leave:false,patch:false,ot:false,cancel:false};
+const REVIEW_HIST_SC={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
+
+async function toggleReviewHistory(kind){
+  const el=document.getElementById('review-history-'+kind);
+  const arrow=document.getElementById('review-history-'+kind+'-arrow');
+  reviewHistoryExpanded[kind]=!reviewHistoryExpanded[kind];
+  el.style.display=reviewHistoryExpanded[kind]?'block':'none';
+  arrow.textContent=reviewHistoryExpanded[kind]?'▲':'▼';
+  if(!reviewHistoryExpanded[kind])return;
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    let items=[];
+    if(kind==='leave'){
+      const r=await api('get_leave_requests');
+      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
+        title:x.name+' · '+x.type, status:x.status,
+        detail:`${x.start}${x.start!==x.end?' ~ '+x.end:''} · ${x.unit||''}`,
+        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
+      }));
+    } else if(kind==='patch'){
+      const r=await api('get_patch_requests');
+      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
+        title:x.name+' · '+(x.type==='上班卡'?'上班補卡':'下班補卡'), status:x.status,
+        detail:`${x.date} ${x.time}`,
+        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
+      }));
+    } else if(kind==='ot'){
+      const r=await api('get_overtime_requests',{adminView:true});
+      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
+        title:x.name+' · '+x.type, status:x.status,
+        detail:`${x.date} · ${x.type==='提早上班'?'預計 '+x.startTime+' 上班':'加班至 '+x.endTime}`,
+        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
+      }));
+    } else if(kind==='cancel'){
+      const r=await api('get_cancel_requests');
+      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
+        title:x.name+' · '+x.cancelType, status:x.status,
+        detail:`${x.date}${x.relatedType?' · '+x.relatedType:''}`,
+        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
+      }));
+    }
+    if(!items.length){ el.innerHTML='<div class="empty-state">尚無已審核紀錄</div>'; return; }
+    el.innerHTML=items.map(it=>`
+      <div class="leave-req-card">
+        <div class="leave-req-header"><span class="leave-req-name">${it.title}</span><span style="font-size:11px;font-weight:700;color:${REVIEW_HIST_SC[it.status]||'#854F0B'}">${it.status}</span></div>
+        <div class="leave-req-detail">${it.detail}${it.reviewer?'<br>審核者：'+it.reviewer+(it.reviewTime?'（'+it.reviewTime+'）':''):''}${it.reason?'<br>審核備註：'+it.reason:''}</div>
+      </div>`).join('');
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
 // 重設密碼
 async function loadAdminResetPw(){
   const rpEl=document.getElementById('admin-reset-pw');
@@ -1621,6 +1732,53 @@ async function loadAdminGpsConfig(){
     document.getElementById('cfg-lng').value  = gpsConfig.lng;
     document.getElementById('cfg-radius').value = gpsConfig.radius;
   }
+}
+
+// 薪資設定（role>=2）
+async function loadSalaryConfig(){
+  const el=document.getElementById('salary-config-list');
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const result=await api('get_salary_config');
+    const rows=result.configs||[];
+    if(!rows.length){el.innerHTML='<div class="empty-state">尚無在職員工</div>';return;}
+    el.innerHTML=rows.map(c=>`
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;padding:14px 20px">
+        <div style="font-size:13px;font-weight:700">${c.eid}</div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">目標薪資(底薪)</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="targetSalary" value="${c.targetSalary||0}"></div>
+          <div><div class="form-label-sm">基本工資</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="baseSalary" value="${c.baseSalary||29500}"></div>
+        </div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">勞保費</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="laborIns" value="${c.laborIns||0}"></div>
+          <div><div class="form-label-sm">健保費</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="healthIns" value="${c.healthIns||0}"></div>
+        </div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">退休金提繳率</div><input type="number" step="0.001" class="form-input sc-field" data-eid="${c.eid}" data-field="pensionRate" value="${c.pensionRate||0}"></div>
+          <div><div class="form-label-sm">本月提繳退休金</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="pensionAmount" value="${c.pensionAmount||0}"></div>
+        </div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">二代健保扣繳</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="secondGenHealthIns" value="${c.secondGenHealthIns||0}"></div>
+          <div><div class="form-label-sm">健保眷屬數</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="healthInsDependents" value="${c.healthInsDependents||0}"></div>
+        </div>
+      </div>`).join('');
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
+async function saveSalaryConfig(){
+  const msg=document.getElementById('salary-config-msg');
+  const byEid={};
+  document.querySelectorAll('.sc-field').forEach(input=>{
+    const eid=input.dataset.eid, field=input.dataset.field;
+    if(!byEid[eid]) byEid[eid]={eid};
+    byEid[eid][field]=parseFloat(input.value)||0;
+  });
+  const rows=Object.values(byEid);
+  msg.textContent='儲存中…';msg.className='form-msg';
+  try{
+    await api('save_salary_config',{rows});
+    msg.textContent='✓ 薪資設定已儲存';msg.className='form-msg ok';
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
 
 // ── 員工管理：出勤/請假查詢與直接編輯 ──────────────────────────
@@ -2069,6 +2227,18 @@ async function exportRosterExcel(){
     const result=await api('export_roster_excel',{month:monthVal.replace('-','/')});
     window.open(result.fileUrl,'_blank');
     msg.textContent='✓ 已產生，開啟新分頁（可另存為 Excel）';msg.className='form-msg ok';
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+async function exportPayrollPdf(){
+  const monthVal=document.getElementById('report-month').value;
+  const msg=document.getElementById('report-msg');
+  if(!monthVal){msg.textContent='請選擇報表月份';msg.className='form-msg err';return;}
+  msg.textContent='計算並產生薪資表中…';msg.className='form-msg';
+  try{
+    const result=await api('export_payroll_pdf',{month:monthVal.replace('-','/')});
+    downloadBase64File(result.fileBase64, result.fileName, 'application/pdf');
+    msg.textContent='✓ 薪資明細表已產生並下載（勞健保/退休金請確認「設定」裡的薪資設定是否已填正確數字）';msg.className='form-msg ok';
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
 
