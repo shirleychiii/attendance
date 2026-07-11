@@ -331,6 +331,72 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   </div></div>
   <div class="section-label">我的請假紀錄</div>
   <div class="card"><div id="my-leave-list"><div class="empty-state">載入中…</div></div></div>
+  <div class="section-label">我的補卡紀錄</div>
+  <div class="card"><div id="my-patch-list"><div class="empty-state">載入中…</div></div></div>
+  <div class="nav-spacer"></div>
+</div>
+
+<!-- ══ 加班 ══ -->
+<div class="screen" id="screen-overtime">
+  <!-- 公司政策說明 -->
+  <div class="card"><div class="card-inner" style="background:var(--blue-lo);border-radius:var(--radius-md)">
+    <div style="font-size:12px;color:var(--deep-blue);line-height:1.8">
+      <div style="font-weight:700;margin-bottom:4px">📋 加班與提早上班政策</div>
+      為了維護每位夥伴的工作健康與身心調適，公司以<strong>補休為原則</strong>。若有特殊需求，員工亦可依勞基法規定申請加班費，公司尊重每位夥伴的選擇。<br>
+      請提前申請並等待主管核准後，系統才會開放對應時段的打卡。
+    </div>
+  </div></div>
+
+  <div class="section-label">提出申請</div>
+  <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+    <div>
+      <div class="form-label-sm">申請類型</div>
+      <select id="ot-type" class="form-select" onchange="onOtTypeChange()">
+        <option value="提早上班">提早上班</option>
+        <option value="加班">加班（延後下班）</option>
+      </select>
+    </div>
+    <div><div class="form-label-sm">申請日期</div><input type="date" id="ot-date" class="form-input"></div>
+    <div id="ot-early-row">
+      <div class="form-label-sm">預計上班時間</div>
+      <select id="ot-start-time" class="form-select">
+        <option value="07:00">07:00</option>
+        <option value="07:30">07:30</option>
+        <option value="08:00" selected>08:00</option>
+        <option value="08:15">08:15</option>
+        <option value="08:30">08:30</option>
+      </select>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:5px">※ 核准後，系統將依上班時間自動計算最早可下班時間（上班時間 + 8小時）</div>
+    </div>
+    <div id="ot-late-row" style="display:none">
+      <div class="form-label-sm">預計加班至</div>
+      <select id="ot-end-time" class="form-select">
+        <option value="19:00">19:00（+1小時）</option>
+        <option value="19:30">19:30（+1.5小時）</option>
+        <option value="20:00">20:00（+2小時）</option>
+        <option value="20:30">20:30（+2.5小時）</option>
+        <option value="21:00">21:00（+3小時）</option>
+        <option value="22:00">22:00（+4小時）</option>
+      </select>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:5px">※ 依勞基法：前2小時薪資×4/3，第3小時起×5/3。公司以補休為主，如需加班費請於備註說明。</div>
+    </div>
+    <div>
+      <div class="form-label-sm">申請原因 <span class="req">*</span></div>
+      <input type="text" id="ot-note" class="form-input" placeholder="請說明提早上班或加班原因">
+    </div>
+    <div>
+      <div class="form-label-sm">補休或加班費</div>
+      <select id="ot-compensation" class="form-select">
+        <option value="補休">補休（建議）</option>
+        <option value="加班費">加班費</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="submitOvertime()">送出申請</button>
+    <div class="form-msg" id="ot-msg"></div>
+  </div></div>
+
+  <div class="section-label">我的申請紀錄</div>
+  <div class="card"><div id="my-ot-list"><div class="empty-state">載入中…</div></div></div>
   <div class="nav-spacer"></div>
 </div>
 
@@ -364,6 +430,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div class="card"><div id="admin-leave-list"><div class="empty-state">載入中…</div></div></div>
   <div class="section-label">待審核補卡 <span id="pending-patch-count"></span></div>
   <div class="card"><div id="admin-patch-list"><div class="empty-state">載入中…</div></div></div>
+  <div class="section-label">待審核加班/提早上班 <span id="pending-ot-count"></span></div>
+  <div class="card"><div id="admin-ot-list"><div class="empty-state">載入中…</div></div></div>
   <div class="section-label">重設員工密碼</div>
   <div class="card"><div id="admin-reset-pw"></div></div>
   <div id="super-admin-section" style="display:none">
@@ -395,6 +463,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <button class="nav-btn active" onclick="switchTab('punch',this)"><span class="nav-icon">⏱</span><span class="nav-label">打卡</span></button>
   <button class="nav-btn" onclick="switchTab('records',this)"><span class="nav-icon">📋</span><span class="nav-label">紀錄</span></button>
   <button class="nav-btn" onclick="switchTab('leave',this)"><span class="nav-icon">🗓</span><span class="nav-label">請假</span></button>
+  <button class="nav-btn" onclick="switchTab('overtime',this)"><span class="nav-icon">⏰</span><span class="nav-label">加班</span></button>
   <button class="nav-btn" onclick="switchTab('profile',this)"><span class="nav-icon">👤</span><span class="nav-label">個人</span></button>
   <button class="nav-btn" id="nav-admin" style="display:none" onclick="switchTab('admin',this)">
     <span class="nav-icon">⚙️</span><span class="nav-label">管理</span>
@@ -549,6 +618,7 @@ function switchTab(n,btn){
   if(n==='punch')   renderPunch();
   if(n==='records') loadRecords();
   if(n==='leave')   loadLeave();
+  if(n==='overtime') loadOvertime();
   if(n==='profile') renderProfile();
   if(n==='admin')   loadAdmin();
 }
@@ -600,6 +670,35 @@ async function doPunch(type){
   const hasOut = todayPunchCache.find(r=>r.date===today&&r.type==='下班');
   if(type==='in'&&hasIn){showToast('今日已完成上班打卡');return;}
   if(type==='out'&&hasOut){showToast('今日已完成下班打卡');return;}
+  // ── 打卡時間限制 ──
+  const now=new Date(), hm=now.getHours()*60+now.getMinutes();
+  const T0830=8*60+30, T0930=9*60+30, T1800=18*60, T1830=18*60+30;
+  if(type==='in'){
+    if(hm<=T0830){showToast('⚠ 上班打卡最早 08:31，如需提早上班請先申請');return;}
+    if(hm>T0930){
+      // 09:30後打卡標記遲到，但仍允許（補卡或申請）
+      // 這裡仍允許打卡，遲到由後端標記
+    }
+  }
+  if(type==='out'){
+    // 檢查有無核准的提早上班申請
+    const approvedEarly=await getApprovedOvertimeToday('提早上班');
+    let earliestOut=T1800;
+    if(approvedEarly){
+      const[sh,sm]=approvedEarly.startTime.split(':').map(Number);
+      earliestOut=(sh*60+sm)+8*60; // 上班時間+8小時
+    }
+    if(hm<earliestOut){
+      const etH=Math.floor(earliestOut/60), etM=earliestOut%60;
+      showToast(`⚠ 最早 ${String(etH).padStart(2,'0')}:${String(etM).padStart(2,'0')} 才能下班打卡`);return;
+    }
+    // 檢查有無核准的加班申請
+    const approvedOT=await getApprovedOvertimeToday('加班');
+    const latestOut=approvedOT?parseInt(approvedOT.endTime.split(':')[0])*60+parseInt(approvedOT.endTime.split(':')[1]):T1830;
+    if(hm>latestOut){
+      showToast(`⚠ 超過打卡時間，如需加班請先申請`);return;
+    }
+  }
   if(currentMode==='辦公室'&&currentGPS){
     const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
     if(dist>gpsConfig.radius){showToast(`⚠ 您距辦公室 ${Math.round(dist)} 公尺，超出打卡範圍`);return;}
@@ -629,6 +728,16 @@ async function doPunch(type){
 }
 
 function closeResult(){document.getElementById('overlay').classList.remove('show');document.querySelectorAll('.nav-btn')[1].click();}
+
+// 取得今日已核准的加班/提早上班申請
+async function getApprovedOvertimeToday(type){
+  try{
+    const today=todayKey();
+    const result=await api('get_overtime_requests');
+    const req=(result.requests||[]).find(r=>r.type===type&&r.date===today&&r.status==='已核准');
+    return req||null;
+  }catch(e){ return null; }
+}
 
 // ── 補卡 ──────────────────────────────────────────────────────
 function togglePatchForm(){
@@ -770,15 +879,47 @@ async function loadLeave(){
     const list=(result.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
     if(!list.length){ll.innerHTML='<div class="empty-state">尚無請假紀錄</div>';return;}
     const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e'};
-    ll.innerHTML=list.map(r=>`
+    ll.innerHTML=list.map(r=>{
+      const days=r.end?Math.round((new Date(r.end)-new Date(r.start))/86400000)+1:1;
+      const waitWho=days>1?'等待最高管理者（Shirley）審核中':'等待主管審核中';
+      return '<div class="leave-req-card">'
+        +'<div class="leave-req-header">'
+        +'<span class="leave-req-name">'+r.type+'</span>'
+        +'<span style="font-size:11px;font-weight:700;color:'+(sc[r.status]||'#854F0B')+'">'+r.status+'</span>'
+        +'</div>'
+        +'<div class="leave-req-detail">'
+        +r.start+(r.start!==r.end?' ~ '+r.end:'')+' · '+(r.unit||'')
+        +(r.note?'<br>說明：'+r.note:'')
+        +(r.status==='待審核'?'<br><span style="font-size:11px;color:var(--amber)">⏳ '+waitWho+'</span>':'')
+        +(r.reviewer?'<br>審核者：'+r.reviewer+(r.reviewTime?' ('+r.reviewTime+')':''):'')
+        +(r.reason?'<br>審核備註：'+r.reason:'')
+        +'</div>'
+        +'</div>';
+    }).join('');
+  } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+
+  // 我的補卡紀錄
+  const pl=document.getElementById('my-patch-list');
+  pl.innerHTML='<div class="empty-state">載入中…</div>';
+  try {
+    const presult=await api('get_patch_requests');
+    const myPatches=(presult.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
+    if(!myPatches.length){pl.innerHTML='<div class="empty-state">尚無補卡紀錄</div>';return;}
+    const psc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e'};
+    pl.innerHTML=myPatches.map(r=>`
       <div class="leave-req-card">
         <div class="leave-req-header">
-          <span class="leave-req-name">${r.type}</span>
-          <span style="font-size:11px;font-weight:700;color:${sc[r.status]||'#854F0B'}">${r.status}</span>
+          <span class="leave-req-name">${r.type==='上班卡'?'上班補卡':'下班補卡'}</span>
+          <span style="font-size:11px;font-weight:700;color:${psc[r.status]||'#854F0B'}">${r.status}</span>
         </div>
-        <div class="leave-req-detail">${r.start}${r.start!==r.end?' ~ '+r.end:''} · ${r.unit||''}${r.note?'<br>說明：'+r.note:''}${r.reason?'<br>拒絕原因：'+r.reason:''}</div>
+        <div class="leave-req-detail">
+          ${r.date} ${r.time}<br>原因：${r.note}
+          ${r.status==='待審核'?'<br><span style="font-size:11px;color:var(--amber)">⏳ 等待主管審核中</span>':''}
+          ${r.reviewer?'<br>審核者：'+r.reviewer+(r.reviewTime?' ('+r.reviewTime+')':''):''}
+          ${r.reason?'<br>審核備註：'+r.reason:''}
+        </div>
       </div>`).join('');
-  } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+  } catch(e){ pl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
 
 async function submitLeave(){
@@ -921,6 +1062,36 @@ async function loadAdmin(){
     }).join('');
   } catch(e){ pl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 
+  // 待審核加班
+  const otl=document.getElementById('admin-ot-list');
+  otl.innerHTML='<div class="empty-state">載入中…</div>';
+  try {
+    const otresult=await api('get_overtime_requests',{pendingOnly:true,adminView:true});
+    const pendingOT=otresult.requests||[];
+    document.getElementById('pending-ot-count').textContent=pendingOT.length?`（${pendingOT.length}）`:'';
+    if(!pendingOT.length){otl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';}
+    else{
+      otl.innerHTML=pendingOT.map(r=>{
+        const oid='ot_'+r.rowIdx;
+        return '<div class="leave-req-card">'
+          +'<div class="leave-req-header">'
+          +'<span class="leave-req-name">'+r.name+'</span>'
+          +'<span class="leave-req-type ltype-補卡">'+r.type+'</span>'
+          +'</div>'
+          +'<div class="leave-req-detail">'
+          +r.date+' · '+(r.type==='提早上班'?'預計 '+r.startTime+' 上班':'加班至 '+r.endTime)
+          +'<br>原因：'+r.note+' · '+r.compensation
+          +'</div>'
+          +'<div style="margin-bottom:8px"><input type="text" id="'+oid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填）" style="font-size:12px;padding:9px 12px"></div>'
+          +'<div class="leave-req-actions">'
+          +'<button class="btn-approve" onclick="reviewOTWithComment('+r.rowIdx+','已核准',''+oid+'_comment')">✓ 核准</button>'
+          +'<button class="btn-reject" onclick="reviewOTWithComment('+r.rowIdx+','已拒絕',''+oid+'_comment')">✗ 拒絕</button>'
+          +'</div>'
+          +'</div>';
+      }).join('');
+    }
+  } catch(e){ otl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+
   // 重設密碼
   const rpEl=document.getElementById('admin-reset-pw');
   try {
@@ -977,6 +1148,15 @@ async function promptResetPw(eid,name){
   try{ await api('reset_password',{targetEid:eid,newPw}); showToast(`✓ ${name} 的密碼已重設`); }
   catch(e){ showToast('⚠ '+e.message); }
 }
+async function reviewOTWithComment(rowIdx, status, commentId){
+  const comment=document.getElementById(commentId)?.value?.trim()||'';
+  if(status==='已拒絕'&&!comment){showToast('⚠ 拒絕時請填寫審核備註');return;}
+  try{
+    await api('review_overtime',{rowIdx,status,reason:comment});
+    showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge();
+  }catch(e){ showToast('⚠ '+e.message); }
+}
+
 async function setRole(eid,roleVal){
   try{ await api('set_role',{targetEid:eid,role:parseInt(roleVal)}); showToast('✓ 權限已更新'); }
   catch(e){ showToast('⚠ '+e.message); }
@@ -1009,6 +1189,58 @@ async function syncNotion(){
   }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
 }
 
+// ── 加班/提早上班 ──────────────────────────────────────────────
+function onOtTypeChange(){
+  const type=document.getElementById('ot-type').value;
+  document.getElementById('ot-early-row').style.display=type==='提早上班'?'block':'none';
+  document.getElementById('ot-late-row').style.display=type==='加班'?'block':'none';
+}
+
+async function loadOvertime(){
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('ot-date').value=today;
+  const ll=document.getElementById('my-ot-list');
+  ll.innerHTML='<div class="empty-state">載入中…</div>';
+  try {
+    const result=await api('get_overtime_requests');
+    const list=(result.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
+    if(!list.length){ll.innerHTML='<div class="empty-state">尚無申請紀錄</div>';return;}
+    const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e'};
+    ll.innerHTML=list.map(r=>`
+      <div class="leave-req-card">
+        <div class="leave-req-header">
+          <span class="leave-req-name">${r.type}</span>
+          <span style="font-size:11px;font-weight:700;color:${sc[r.status]||'#854F0B'}">${r.status}</span>
+        </div>
+        <div class="leave-req-detail">
+          ${r.date} · ${r.type==='提早上班'?'預計 '+r.startTime+' 上班':'加班至 '+r.endTime}
+          <br>原因：${r.note} · ${r.compensation}
+          ${r.status==='待審核'?'<br><span style="font-size:11px;color:var(--amber)">⏳ 等待主管審核中</span>':''}
+          ${r.reviewer?'<br>審核者：'+r.reviewer:''}
+          ${r.reason?'<br>審核備註：'+r.reason:''}
+        </div>
+      </div>`).join('');
+  } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
+async function submitOvertime(){
+  const type=document.getElementById('ot-type').value;
+  const date=document.getElementById('ot-date').value;
+  const note=document.getElementById('ot-note').value;
+  const compensation=document.getElementById('ot-compensation').value;
+  const startTime=document.getElementById('ot-start-time').value;
+  const endTime=document.getElementById('ot-end-time').value;
+  const msg=document.getElementById('ot-msg');
+  if(!date){msg.textContent='請填寫申請日期';msg.className='form-msg err';return;}
+  if(!note.trim()){msg.textContent='請填寫申請原因';msg.className='form-msg err';return;}
+  try {
+    await api('create_overtime',{type,date,startTime:type==='提早上班'?startTime:'',endTime:type==='加班'?endTime:'',note,compensation});
+    msg.textContent='✓ 申請已送出，待主管審核';msg.className='form-msg ok';
+    document.getElementById('ot-note').value='';
+    loadOvertime(); loadAdminBadge();
+  } catch(e){ msg.textContent='⚠ '+e.message;msg.className='form-msg err'; }
+}
+
 async function loadAdminBadge(){
   if(!session||session.role<1)return;
   try{
@@ -1016,7 +1248,8 @@ async function loadAdminBadge(){
       api('get_leave_requests',{pendingOnly:true}),
       api('get_patch_requests',{pendingOnly:true}),
     ]);
-    const count=(lr.requests||[]).length+(pr.requests||[]).length;
+    const otr=await api('get_overtime_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]}));
+    const count=(lr.requests||[]).length+(pr.requests||[]).length+(otr.requests||[]).length;
     const badge=document.getElementById('admin-badge');
     if(count>0){badge.style.display='flex';badge.textContent=count;}
     else badge.style.display='none';
