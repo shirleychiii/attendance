@@ -495,8 +495,10 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   </div>
 
   <div class="mode-tabs">
-    <button class="mode-tab active" onclick="switchAdminSub('review',this)">🗂 審核中心</button>
-    <button class="mode-tab" onclick="switchAdminSub('manage',this)">👥 員工管理</button>
+    <button class="mode-tab active" onclick="switchAdminSub('review',this)">🗂 審核</button>
+    <button class="mode-tab" onclick="switchAdminSub('manage',this)">👥 員工</button>
+    <button class="mode-tab" onclick="switchAdminSub('settings',this)">⚙️ 設定</button>
+    <button class="mode-tab" onclick="switchAdminSub('reports',this)">📊 報表</button>
   </div>
 
   <!-- ══ 審核中心 ══ -->
@@ -509,6 +511,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div class="card"><div id="admin-patch-list"><div class="empty-state">載入中…</div></div></div>
     <div class="section-label">待審核加班/提早上班 <span id="pending-ot-count"></span></div>
     <div class="card"><div id="admin-ot-list"><div class="empty-state">載入中…</div></div></div>
+    <div class="section-label">待審核銷卡/銷假 <span id="pending-cancel-count"></span></div>
+    <div class="card"><div id="admin-cancel-list"><div class="empty-state">載入中…</div></div></div>
   </div>
 
   <!-- ══ 員工管理 ══ -->
@@ -542,32 +546,14 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <button class="btn-primary" onclick="submitEmpAddLeave()">新增</button>
       <div class="form-msg" id="eal-msg"></div>
     </div></div>
-    <div class="card"><div id="emp-history-list"><div class="empty-state">請選擇員工與月份</div></div></div>
+    <div id="emp-history-list"><div class="card"><div class="empty-state">請選擇員工與月份</div></div></div>
 
     <div class="section-label">重設員工密碼</div>
     <div class="card"><div id="admin-reset-pw"></div></div>
+  </div>
 
-    <div class="section-label">每月報表匯出</div>
-    <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
-      <div><div class="form-label-sm">報表月份</div><input type="month" id="report-month" class="form-input"></div>
-      <button class="btn-secondary" onclick="startPdfReview()">📄 產生出勤考核 PDF</button>
-      <button class="btn-secondary" onclick="exportLeaveExcel()">📊 匯出請假紀錄 Excel（f2）</button>
-      <button class="btn-secondary" id="btn-export-roster" onclick="exportRosterExcel()" style="display:none">🧾 匯出員工名冊（f1 用）</button>
-      <div class="form-msg" id="report-msg"></div>
-    </div></div>
-    <div class="card" id="pdf-review-panel" style="display:none">
-      <div class="card-inner" style="display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:13px;font-weight:700">出勤考核審核（勾選是否計入異常／已豁免／已通知）</div>
-        <div style="font-size:11px;color:var(--text-soft)">確認後才會產生 PDF，勾選結果會自動記住</div>
-      </div>
-      <div id="pdf-review-list"></div>
-      <div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn-primary" onclick="confirmGeneratePdf()">確認並產生 PDF</button>
-        <button class="btn-secondary" onclick="document.getElementById('pdf-review-panel').style.display='none'">取消</button>
-        <div class="form-msg" id="pdf-review-msg"></div>
-      </div>
-    </div>
-
+  <!-- ══ 系統設定 ══ -->
+  <div id="admin-sub-settings" style="display:none">
     <div id="super-admin-section" style="display:none">
       <div class="section-label">權限設定</div>
       <div class="card"><div id="admin-roles"></div></div>
@@ -589,6 +575,31 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <button class="btn-primary" onclick="syncNotion()">立即同步</button>
         <div class="form-msg" id="notion-msg"></div>
       </div></div>
+    </div>
+    <div id="settings-non-admin-note" style="display:none"><div class="card"><div class="empty-state">系統設定僅限最高管理者查看</div></div></div>
+  </div>
+
+  <!-- ══ 報表匯出 ══ -->
+  <div id="admin-sub-reports" style="display:none">
+    <div class="section-label">每月報表匯出</div>
+    <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+      <div><div class="form-label-sm">報表月份</div><input type="month" id="report-month" class="form-input"></div>
+      <button class="btn-secondary" onclick="startPdfReview()">📄 產生出勤考核 PDF</button>
+      <button class="btn-secondary" onclick="exportLeaveExcel()">📊 匯出請假紀錄 Excel（f2）</button>
+      <button class="btn-secondary" id="btn-export-roster" onclick="exportRosterExcel()" style="display:none">🧾 匯出員工名冊（f1 用）</button>
+      <div class="form-msg" id="report-msg"></div>
+    </div></div>
+    <div class="card" id="pdf-review-panel" style="display:none">
+      <div class="card-inner" style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;font-weight:700">出勤考核審核（勾選是否計入異常／已豁免／已通知）</div>
+        <div style="font-size:11px;color:var(--text-soft)">確認後才會產生 PDF，勾選結果會自動記住</div>
+      </div>
+      <div id="pdf-review-list"></div>
+      <div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn-primary" onclick="confirmGeneratePdf()">確認並產生 PDF</button>
+        <button class="btn-secondary" onclick="document.getElementById('pdf-review-panel').style.display='none'">取消</button>
+        <div class="form-msg" id="pdf-review-msg"></div>
+      </div>
     </div>
   </div>
   <div class="nav-spacer"></div>
@@ -938,6 +949,13 @@ async function submitCancelPunch(){
     await api('create_cancel_request',{cancelType:'punch',date,punchType:type,note});
     msg.textContent='✓ 銷卡申請已送出，待主管審核';msg.className='form-msg ok';
     document.getElementById('cancel-punch-note').value='';
+    showResultSheet({
+      icon:'🗑', iconClass:'icon-pending',
+      typeText:'銷卡申請已送出', typeClass:'pending',
+      big:'待審核',
+      sub:`${date} · ${type==='in'?'上班卡':'下班卡'}`,
+      loc:'已通知主管審核，結果將以 Email 通知你',
+    });
     loadAdminBadge();
   }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
 }
@@ -983,6 +1001,13 @@ async function submitCancelLeave(){
     await api('create_cancel_request',{cancelType:'leave',leaveRowIdx:rowIdx,note});
     msg.textContent='✓ 銷假申請已送出，待主管審核';msg.className='form-msg ok';
     document.getElementById('cancel-leave-note').value='';
+    showResultSheet({
+      icon:'🗑', iconClass:'icon-pending',
+      typeText:'銷假申請已送出', typeClass:'pending',
+      big:'待審核',
+      sub:document.getElementById('cancel-leave-id').selectedOptions[0]?.textContent||'',
+      loc:'已通知主管審核，結果將以 Email 通知你',
+    });
     loadAdminBadge();
   }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
 }
@@ -1214,7 +1239,7 @@ async function loadLeave(){
     const result=await api('get_leave_requests');
     const list=(result.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
     if(!list.length){ll.innerHTML='<div class="empty-state">尚無請假紀錄</div>';return;}
-    const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e'};
+    const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
     ll.innerHTML=list.map(r=>{
       const days=r.end?Math.round((new Date(r.end)-new Date(r.start))/86400000)+1:1;
       const waitWho=days>1?'等待最高管理者（Shirley）審核中':'等待主管審核中';
@@ -1241,7 +1266,7 @@ async function loadLeave(){
     const presult=await api('get_patch_requests');
     const myPatches=(presult.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
     if(!myPatches.length){pl.innerHTML='<div class="empty-state">尚無補卡紀錄</div>';return;}
-    const psc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e'};
+    const psc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
     pl.innerHTML=myPatches.map(r=>`
       <div class="leave-req-card">
         <div class="leave-req-header">
@@ -1340,6 +1365,7 @@ async function changePassword(){
 function loadAdmin(){
   if(!session||session.role<1)return;
   document.getElementById('super-admin-section').style.display=session.role>=2?'block':'none';
+  document.getElementById('settings-non-admin-note').style.display=session.role>=2?'none':'block';
   document.getElementById('btn-emp-add-punch').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-emp-add-leave').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-roster').style.display=session.role>=2?'block':'none';
@@ -1347,6 +1373,7 @@ function loadAdmin(){
   loadAdminLeaveList();
   loadAdminPatchList();
   loadAdminOvertimeList();
+  loadAdminCancelList();
   loadAdminResetPw();
   if(session.role>=2){
     loadAdminRoles();
@@ -1362,8 +1389,9 @@ function loadAdmin(){
 function switchAdminSub(sub, btn){
   document.querySelectorAll('#screen-admin .mode-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('admin-sub-review').style.display=sub==='review'?'block':'none';
-  document.getElementById('admin-sub-manage').style.display=sub==='manage'?'block':'none';
+  ['review','manage','settings','reports'].forEach(s=>{
+    document.getElementById('admin-sub-'+s).style.display = s===sub ? 'block' : 'none';
+  });
 }
 
 // 今日出勤（從後端撈所有人今日打卡）
@@ -1490,6 +1518,39 @@ async function loadAdminOvertimeList(){
   } catch(e){ otl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
 
+// 待審核銷卡/銷假
+async function loadAdminCancelList(){
+  const cl=document.getElementById('admin-cancel-list');
+  cl.innerHTML='<div class="empty-state">載入中…</div>';
+  try {
+    const result=await api('get_cancel_requests',{pendingOnly:true});
+    const pending=result.requests||[];
+    document.getElementById('pending-cancel-count').textContent=pending.length?`（${pending.length}）`:'';
+    if(!pending.length){cl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
+    cl.innerHTML=pending.map(r=>{
+      const cid='cancel_'+r.rowIdx;
+      return `<div class="leave-req-card">
+        <div class="leave-req-header">
+          <span class="leave-req-name">${r.name}</span>
+          <span class="leave-req-type ltype-補卡">${r.cancelType}</span>
+        </div>
+        <div class="leave-req-detail">${r.date}${r.relatedType?' · '+r.relatedType:''}<br>原因：${r.note}</div>
+        <div style="margin-bottom:8px"><input type="text" id="${cid}_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>
+        <div class="leave-req-actions">
+          <button class="btn-approve" onclick="reviewCancelWithComment(${r.rowIdx},'已核准','${cid}_comment')">✓ 核准</button>
+          <button class="btn-reject" onclick="reviewCancelWithComment(${r.rowIdx},'已拒絕','${cid}_comment')">✗ 拒絕</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){ cl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+async function reviewCancelWithComment(rowIdx, status, commentId){
+  const comment = document.getElementById(commentId)?.value?.trim()||'';
+  if(status==='已拒絕' && !comment){ showToast('⚠ 拒絕時請填寫審核備註'); return; }
+  try{ await api('review_cancel',{rowIdx,status,reason:comment}); showToast('✓ 審核完成'); loadAdminCancelList(); loadAdminBadge(); }
+  catch(e){ showToast('⚠ '+e.message); }
+}
+
 // 重設密碼
 async function loadAdminResetPw(){
   const rpEl=document.getElementById('admin-reset-pw');
@@ -1553,58 +1614,156 @@ async function populateEmpQuerySelect(){
   }catch(e){}
 }
 
+// ── 員工出勤查詢：預設收合，只顯示筆數摘要，點擊才展開細節 ──────
+let empHistoryCache=null;
+let empHistoryExpanded={punch:false,leave:false,ot:false};
+let empHistoryEditing=null; // {kind:'punch'|'leave', rowIdx}
+const EMP_HIST_SC={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
+
 async function loadEmpHistory(){
   const eid=document.getElementById('emp-query-eid').value;
   const monthVal=document.getElementById('emp-query-month').value; // yyyy-MM
   const listEl=document.getElementById('emp-history-list');
-  if(!eid||!monthVal){listEl.innerHTML='<div class="empty-state">請選擇員工與月份</div>';return;}
+  if(!eid||!monthVal){empHistoryCache=null;listEl.innerHTML='<div class="card"><div class="empty-state">請選擇員工與月份</div></div>';return;}
   const month=monthVal.replace('-','/');
-  listEl.innerHTML='<div class="empty-state">載入中…</div>';
+  listEl.innerHTML='<div class="card"><div class="empty-state">載入中…</div></div>';
   try{
-    const [attR, leaveR, otR] = await Promise.all([
+    const [attR, leaveR, otR, patchR, cancelR] = await Promise.all([
       api('get_attendance',{eid,month}),
       api('get_leave_requests',{eid}),
       api('get_overtime_requests',{eid,adminView:true}),
+      api('get_patch_requests',{eid}),
+      api('get_cancel_requests',{eid}),
     ]);
-    const punches=(attR.records||[]).sort((a,b)=>a.date+a.time<b.date+b.time?-1:1);
-    const leaves=(leaveR.requests||[]).filter(r=>r.start.startsWith(month)||r.end.startsWith(month));
-    const ots=(otR.requests||[]).filter(r=>r.date.startsWith(month));
-    const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e'};
-    let html='';
-    if(punches.length){
-      html+='<div class="section-label" style="padding:12px 20px 4px">打卡紀錄</div>';
-      html+=punches.map(r=>`
-        <div class="record-item">
-          <div class="record-left">
-            <div class="record-dot ${r.type==='上班'?'dot-in':'dot-out'}"></div>
-            <div><div class="record-type">${r.type}${r.mode?' · '+r.mode:''}</div><div class="record-sub">${r.date}</div></div>
-          </div>
-          <div class="record-right" style="display:flex;align-items:center;gap:6px">
-            <div class="record-time">${r.time}</div>
-            ${session.role>=2?`<button onclick="adminEditPunch(${r.rowIdx},'${r.date}','${r.time}','${r.type==='上班'?'in':'out'}')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">編輯</button>
-            <button onclick="adminDeletePunch(${r.rowIdx})" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--rose-lo);color:var(--rose);cursor:pointer">刪除</button>`:''}
-          </div>
-        </div>`).join('');
+    empHistoryCache={
+      punches:(attR.records||[]).sort((a,b)=>a.date+a.time<b.date+b.time?-1:1),
+      leaves:(leaveR.requests||[]).filter(r=>r.start.startsWith(month)||r.end.startsWith(month)),
+      ots:(otR.requests||[]).filter(r=>r.date.startsWith(month)),
+      patches:(patchR.requests||[]).filter(r=>r.date.startsWith(month)),
+      cancels:(cancelR.requests||[]).filter(r=>r.date.startsWith(month)),
+    };
+    empHistoryExpanded={punch:false,leave:false,ot:false,patch:false,cancel:false};
+    empHistoryEditing=null;
+    renderEmpHistory();
+  }catch(e){ listEl.innerHTML=`<div class="card"><div class="empty-state">載入失敗：${e.message}</div></div>`; }
+}
+
+function toggleEmpHistorySection(kind){
+  empHistoryExpanded[kind]=!empHistoryExpanded[kind];
+  renderEmpHistory();
+}
+
+function empHistorySection(kind, icon, label, count, bodyFn){
+  const expanded=empHistoryExpanded[kind];
+  return `<div class="card" style="margin-bottom:10px">
+    <div class="settings-row" style="cursor:pointer" onclick="toggleEmpHistorySection('${kind}')">
+      <div style="font-size:13px;font-weight:700">${icon} ${label}</div>
+      <div style="font-size:12px;color:var(--text-soft);display:flex;align-items:center;gap:6px">${count} 筆 <span style="font-size:10px">${expanded?'▲':'▼'}</span></div>
+    </div>
+    ${expanded?bodyFn():''}
+  </div>`;
+}
+
+function renderEmpHistory(){
+  const listEl=document.getElementById('emp-history-list');
+  if(!empHistoryCache){ listEl.innerHTML='<div class="card"><div class="empty-state">請選擇員工與月份</div></div>'; return; }
+  const {punches,leaves,ots,patches,cancels}=empHistoryCache;
+  listEl.innerHTML =
+    empHistorySection('punch','🕐','打卡紀錄',punches.length,renderEmpPunchList) +
+    empHistorySection('leave','🗓','請假紀錄',leaves.length,renderEmpLeaveList) +
+    empHistorySection('ot','⏰','加班/提早上班紀錄',ots.length,renderEmpOtList) +
+    empHistorySection('patch','📝','補卡申請紀錄',patches.length,renderEmpPatchList) +
+    empHistorySection('cancel','🗑','銷卡/銷假申請紀錄',cancels.length,renderEmpCancelList);
+}
+
+function renderEmpPunchList(){
+  const {punches}=empHistoryCache;
+  if(!punches.length) return '<div class="empty-state">尚無打卡紀錄</div>';
+  return punches.map(r=>{
+    const isAdmin=r.mode==='管理員新增';
+    if(empHistoryEditing && empHistoryEditing.kind==='punch' && empHistoryEditing.rowIdx===r.rowIdx){
+      return `<div class="record-item" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div class="form-row-2">
+          <input type="date" class="form-input" id="edit-punch-date" value="${r.date.replace(/\//g,'-')}">
+          <input type="time" class="form-input" id="edit-punch-time" value="${r.time}">
+        </div>
+        <select id="edit-punch-type" class="form-select"><option value="in" ${r.type==='上班'?'selected':''}>上班卡</option><option value="out" ${r.type==='下班'?'selected':''}>下班卡</option></select>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:1;padding:8px;font-size:12px" onclick="saveEmpEditPunch(${r.rowIdx})">儲存</button>
+          <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="empHistoryEditing=null;renderEmpHistory()">取消</button>
+        </div>
+      </div>`;
     }
-    if(leaves.length){
-      html+='<div class="section-label" style="padding:12px 20px 4px">請假紀錄</div>';
-      html+=leaves.map(r=>`
-        <div class="leave-req-card">
-          <div class="leave-req-header"><span class="leave-req-name">${r.type}</span><span style="font-size:11px;font-weight:700;color:${sc[r.status]||'#854F0B'}">${r.status}</span></div>
-          <div class="leave-req-detail">${r.start}${r.start!==r.end?' ~ '+r.end:''} · ${r.unit||''}${r.note?'<br>說明：'+r.note:''}</div>
-          ${session.role>=2?`<div class="leave-req-actions"><button class="btn-approve" style="flex:none;padding:6px 12px" onclick="adminEditLeavePrompt(${r.rowIdx},'${r.start}','${r.end}')">編輯日期</button></div>`:''}
-        </div>`).join('');
+    return `<div class="record-item">
+      <div class="record-left">
+        <div class="record-dot ${r.type==='上班'?'dot-in':'dot-out'}"></div>
+        <div><div class="record-type">${r.type}${r.mode?' · '+r.mode:''}${isAdmin?' <span style="font-size:9px;background:var(--blue-lo);color:var(--deep-blue);padding:1px 6px;border-radius:99px">管理員建立</span>':''}</div><div class="record-sub">${r.date}</div></div>
+      </div>
+      <div class="record-right" style="display:flex;align-items:center;gap:6px">
+        <div class="record-time">${r.time}</div>
+        ${session.role>=2?`<button onclick="empHistoryEditing={kind:'punch',rowIdx:${r.rowIdx}};renderEmpHistory()" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">編輯</button>
+        <button onclick="adminDeletePunch(${r.rowIdx})" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--rose-lo);color:var(--rose);cursor:pointer">刪除</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderEmpLeaveList(){
+  const {leaves}=empHistoryCache;
+  if(!leaves.length) return '<div class="empty-state">尚無請假紀錄</div>';
+  return leaves.map(r=>{
+    const isAdmin=r.note && r.note.includes('管理員直接建立');
+    if(empHistoryEditing && empHistoryEditing.kind==='leave' && empHistoryEditing.rowIdx===r.rowIdx){
+      return `<div class="leave-req-card" style="display:flex;flex-direction:column;gap:8px">
+        <select id="edit-leave-type" class="form-select"><option value="特休" ${r.type==='特休'?'selected':''}>特休</option><option value="病假" ${r.type==='病假'?'selected':''}>病假</option><option value="事假" ${r.type==='事假'?'selected':''}>事假</option><option value="生理假" ${r.type==='生理假'?'selected':''}>生理假</option></select>
+        <div class="form-row-2">
+          <input type="date" class="form-input" id="edit-leave-start" value="${r.start.replace(/\//g,'-')}">
+          <input type="date" class="form-input" id="edit-leave-end" value="${r.end.replace(/\//g,'-')}">
+        </div>
+        <input type="text" class="form-input" id="edit-leave-unit" value="${(r.unit||'').replace(/"/g,'&quot;')}" placeholder="時數單位">
+        <input type="text" class="form-input" id="edit-leave-note" value="${(r.note||'').replace(/"/g,'&quot;')}" placeholder="說明">
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:1;padding:8px;font-size:12px" onclick="saveEmpEditLeave(${r.rowIdx})">儲存</button>
+          <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="empHistoryEditing=null;renderEmpHistory()">取消</button>
+        </div>
+      </div>`;
     }
-    if(ots.length){
-      html+='<div class="section-label" style="padding:12px 20px 4px">加班/提早上班紀錄</div>';
-      html+=ots.map(r=>`
-        <div class="leave-req-card">
-          <div class="leave-req-header"><span class="leave-req-name">${r.type}</span><span style="font-size:11px;font-weight:700;color:${sc[r.status]||'#854F0B'}">${r.status}</span></div>
-          <div class="leave-req-detail">${r.date} · ${r.type==='提早上班'?'預計 '+r.startTime+' 上班':'加班至 '+r.endTime}</div>
-        </div>`).join('');
-    }
-    listEl.innerHTML=html||'<div class="empty-state">該月無任何紀錄</div>';
-  }catch(e){ listEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+    return `<div class="leave-req-card">
+      <div class="leave-req-header"><span class="leave-req-name">${r.type}${isAdmin?' <span style="font-size:9px;background:var(--blue-lo);color:var(--deep-blue);padding:1px 6px;border-radius:99px">管理員建立</span>':''}</span><span style="font-size:11px;font-weight:700;color:${EMP_HIST_SC[r.status]||'#854F0B'}">${r.status}</span></div>
+      <div class="leave-req-detail">${r.start}${r.start!==r.end?' ~ '+r.end:''} · ${r.unit||''}${r.note?'<br>說明：'+r.note:''}${r.reviewer?'<br>審核者：'+r.reviewer:''}</div>
+      ${session.role>=2?`<div class="leave-req-actions"><button class="btn-approve" style="flex:none;padding:6px 12px" onclick="empHistoryEditing={kind:'leave',rowIdx:${r.rowIdx}};renderEmpHistory()">編輯</button></div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderEmpOtList(){
+  const {ots}=empHistoryCache;
+  if(!ots.length) return '<div class="empty-state">尚無加班/提早上班紀錄</div>';
+  return ots.map(r=>`
+    <div class="leave-req-card">
+      <div class="leave-req-header"><span class="leave-req-name">${r.type}</span><span style="font-size:11px;font-weight:700;color:${EMP_HIST_SC[r.status]||'#854F0B'}">${r.status}</span></div>
+      <div class="leave-req-detail">${r.date} · ${r.type==='提早上班'?'預計 '+r.startTime+' 上班':'加班至 '+r.endTime}</div>
+    </div>`).join('');
+}
+
+function renderEmpPatchList(){
+  const {patches}=empHistoryCache;
+  if(!patches.length) return '<div class="empty-state">尚無補卡申請紀錄</div>';
+  return patches.map(r=>`
+    <div class="leave-req-card">
+      <div class="leave-req-header"><span class="leave-req-name">${r.type==='上班卡'?'上班補卡':'下班補卡'}</span><span style="font-size:11px;font-weight:700;color:${EMP_HIST_SC[r.status]||'#854F0B'}">${r.status}</span></div>
+      <div class="leave-req-detail">${r.date} ${r.time}<br>原因：${r.note}${r.reviewer?'<br>審核者：'+r.reviewer+(r.reviewTime?'（'+r.reviewTime+'）':''):''}${r.reason?'<br>審核備註：'+r.reason:''}</div>
+    </div>`).join('');
+}
+
+function renderEmpCancelList(){
+  const {cancels}=empHistoryCache;
+  if(!cancels.length) return '<div class="empty-state">尚無銷卡/銷假申請紀錄</div>';
+  return cancels.map(r=>`
+    <div class="leave-req-card">
+      <div class="leave-req-header"><span class="leave-req-name">${r.cancelType}</span><span style="font-size:11px;font-weight:700;color:${EMP_HIST_SC[r.status]||'#854F0B'}">${r.status}</span></div>
+      <div class="leave-req-detail">${r.date}${r.relatedType?' · '+r.relatedType:''}<br>原因：${r.note}${r.reviewer?'<br>審核者：'+r.reviewer+(r.reviewTime?'（'+r.reviewTime+'）':''):''}${r.reason?'<br>審核備註：'+r.reason:''}</div>
+    </div>`).join('');
 }
 
 function toggleEmpAddPunch(){
@@ -1657,14 +1816,16 @@ async function submitEmpAddLeave(){
   }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
 }
 
-async function adminEditPunch(rowIdx, curDate, curTime, curType){
-  const newDate=prompt('修改日期（YYYY-MM-DD）：', curDate.replace(/\//g,'-'));
-  if(newDate===null)return;
-  const newTime=prompt('修改時間（HH:MM）：', curTime);
-  if(newTime===null)return;
+async function saveEmpEditPunch(rowIdx){
+  const date=document.getElementById('edit-punch-date').value.replace(/-/g,'/');
+  const time=document.getElementById('edit-punch-time').value;
+  const type=document.getElementById('edit-punch-type').value;
+  if(!date||!time){ showToast('⚠ 請填寫日期與時間'); return; }
   try{
-    await api('admin_update_punch',{rowIdx, date:newDate.replace(/-/g,'/'), time:newTime, type:curType});
-    showToast('✓ 已更新打卡紀錄'); loadEmpHistory();
+    await api('admin_update_punch',{rowIdx, date, time, type});
+    showToast('✓ 已更新打卡紀錄');
+    empHistoryEditing=null;
+    loadEmpHistory();
   }catch(e){ showToast('⚠ '+e.message); }
 }
 async function adminDeletePunch(rowIdx){
@@ -1672,14 +1833,18 @@ async function adminDeletePunch(rowIdx){
   try{ await api('admin_delete_punch',{rowIdx}); showToast('✓ 已刪除'); loadEmpHistory(); }
   catch(e){ showToast('⚠ '+e.message); }
 }
-async function adminEditLeavePrompt(rowIdx, curStart, curEnd){
-  const newStart=prompt('修改開始日期（YYYY-MM-DD）：', curStart.replace(/\//g,'-'));
-  if(newStart===null)return;
-  const newEnd=prompt('修改結束日期（YYYY-MM-DD）：', curEnd.replace(/\//g,'-'));
-  if(newEnd===null)return;
+async function saveEmpEditLeave(rowIdx){
+  const type=document.getElementById('edit-leave-type').value;
+  const start=document.getElementById('edit-leave-start').value;
+  const end=document.getElementById('edit-leave-end').value;
+  const unit=document.getElementById('edit-leave-unit').value;
+  const note=document.getElementById('edit-leave-note').value;
+  if(!start||!end){ showToast('⚠ 請填寫日期'); return; }
   try{
-    await api('admin_update_leave',{rowIdx, start:newStart, end:newEnd});
-    showToast('✓ 已更新請假紀錄'); loadEmpHistory();
+    await api('admin_update_leave',{rowIdx, type, start, end, unit, note});
+    showToast('✓ 已更新請假紀錄');
+    empHistoryEditing=null;
+    loadEmpHistory();
   }catch(e){ showToast('⚠ '+e.message); }
 }
 
@@ -1871,7 +2036,7 @@ async function loadOvertime(){
     const result=await api('get_overtime_requests');
     const list=(result.requests||[]).sort((a,b)=>b.rowIdx-a.rowIdx);
     if(!list.length){ll.innerHTML='<div class="empty-state">尚無申請紀錄</div>';return;}
-    const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e'};
+    const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
     ll.innerHTML=list.map(r=>`
       <div class="leave-req-card">
         <div class="leave-req-header">
@@ -1917,12 +2082,13 @@ async function submitOvertime(){
 async function loadAdminBadge(){
   if(!session||session.role<1)return;
   try{
-    const [lr,pr]=await Promise.all([
+    const [lr,pr,cr]=await Promise.all([
       api('get_leave_requests',{pendingOnly:true}),
       api('get_patch_requests',{pendingOnly:true}),
+      api('get_cancel_requests',{pendingOnly:true}).catch(()=>({requests:[]})),
     ]);
     const otr=await api('get_overtime_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]}));
-    const count=(lr.requests||[]).length+(pr.requests||[]).length+(otr.requests||[]).length;
+    const count=(lr.requests||[]).length+(pr.requests||[]).length+(otr.requests||[]).length+(cr.requests||[]).length;
     const badge=document.getElementById('admin-badge');
     if(count>0){badge.style.display='flex';badge.textContent=count;}
     else badge.style.display='none';
