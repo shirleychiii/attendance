@@ -375,7 +375,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-label-sm">看診證明 <span class="req">*必填</span></div>
       <div class="upload-area" onclick="document.getElementById('proof-file').click()">
         <div class="upload-preview" id="proof-preview"><img id="proof-img"></div>
-        <div id="proof-placeholder"><div style="font-size:22px;margin-bottom:4px">📎</div><div style="font-size:12px;color:var(--text-soft)">點擊上傳看診證明<br>支援 JPG、PNG、PDF</div></div>
+        <div id="proof-placeholder"><div style="font-size:22px;margin-bottom:4px">📎</div><div style="font-size:12px;color:var(--text-soft)">點擊上傳看診證明<br>支援 JPG、PNG、PDF，上限 5MB（圖片會自動壓縮）</div></div>
         <input type="file" id="proof-file" accept="image/*,.pdf" style="display:none" onchange="onProofSelected(this)">
       </div>
       <div style="font-size:11px;color:var(--deep-blue);margin-top:5px" id="proof-name"></div>
@@ -572,6 +572,39 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
 
   <!-- ══ 員工管理 ══ -->
   <div id="admin-sub-manage" style="display:none">
+    <div id="emp-manage-section" style="display:none">
+      <div class="section-label">員工資料管理</div>
+      <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+        <button class="btn-secondary" onclick="toggleEmpCreateForm()">＋ 新增員工</button>
+      </div></div>
+      <div class="card" id="emp-create-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:700">新增員工</div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">員工編號</div><input type="text" id="ec-eid" class="form-input" placeholder="例如 H018"></div>
+          <div><div class="form-label-sm">姓名</div><input type="text" id="ec-name" class="form-input"></div>
+        </div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">暱稱</div><input type="text" id="ec-nick" class="form-input"></div>
+          <div><div class="form-label-sm">Email</div><input type="email" id="ec-email" class="form-input"></div>
+        </div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">部門</div><input type="text" id="ec-dept" class="form-input"></div>
+          <div><div class="form-label-sm">職稱</div><input type="text" id="ec-title" class="form-input"></div>
+        </div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">到職日</div><input type="date" id="ec-hire" class="form-input"></div>
+          <div><div class="form-label-sm">權限等級</div><select id="ec-role" class="form-select"><option value="0">員工</option><option value="1">部門主管</option><option value="2">最高管理者</option></select></div>
+        </div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">身分證字號</div><input type="text" id="ec-nid" class="form-input" placeholder="供勞健保申報用" oninput="updateGenderPreview('ec-nid','ec-gender-preview')"></div>
+          <div><div class="form-label-sm">出生年月日</div><input type="date" id="ec-dob" class="form-input"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-soft)">性別（依身分證字號自動判斷）：<span id="ec-gender-preview">—</span></div>
+        <button class="btn-primary" onclick="submitCreateEmployee()">新增員工</button>
+        <div class="form-msg" id="ec-msg"></div>
+      </div></div>
+      <div class="card"><div id="emp-manage-list"><div class="empty-state">載入中…</div></div></div>
+    </div>
     <div class="section-label">員工出勤查詢</div>
     <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
       <div class="form-row-2">
@@ -591,7 +624,23 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="eap-msg"></div>
     </div></div>
     <div class="card" id="emp-add-leave-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
-      <select id="eal-type" class="form-select"><option value="特休">特休</option><option value="病假">病假</option><option value="事假">事假</option><option value="生理假">生理假</option></select>
+      <select id="eal-type" class="form-select">
+        <optgroup label="一般假別">
+          <option value="特休">特休</option>
+          <option value="病假">病假</option>
+          <option value="事假">事假</option>
+          <option value="生理假">生理假</option>
+        </optgroup>
+        <optgroup label="特殊假別（較少使用，由管理員給假）">
+          <option value="婚假">婚假</option>
+          <option value="喪假">喪假</option>
+          <option value="產假">產假</option>
+          <option value="陪產假">陪產假</option>
+          <option value="家庭照顧假">家庭照顧假</option>
+          <option value="公假">公假</option>
+          <option value="其他">其他</option>
+        </optgroup>
+      </select>
       <div class="form-row-2">
         <div><div class="form-label-sm">開始日期</div><input type="date" id="eal-start" class="form-input"></div>
         <div><div class="form-label-sm">結束日期</div><input type="date" id="eal-end" class="form-input"></div>
@@ -676,6 +725,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <button class="btn-primary" onclick="publishPayroll()">📤 發布本月薪資單</button>
       <div class="form-msg" id="payroll-publish-msg"></div>
     </div></div>
+    <div class="card" id="payroll-months-card" style="display:none"><div id="payroll-months-list"><div class="empty-state">載入中…</div></div></div>
     <div class="card" id="payroll-overview-card" style="display:none"><div id="payroll-overview-list"><div class="empty-state">請先選擇報表月份</div></div></div>
   </div>
   <div class="nav-spacer"></div>
@@ -688,6 +738,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div><div class="mini-name" id="mini-name-screen-finance"></div><div class="mini-meta" id="mini-meta-screen-finance"></div></div>
     <div class="mini-badge" id="mini-badge-screen-finance"></div>
   </div>
+  <div class="section-label">發布狀態（近12個月）</div>
+  <div class="card" id="finance-months-list"><div class="empty-state">載入中…</div></div>
   <div class="section-label">薪資發放總覽</div>
   <div class="card"><div class="card-inner">
     <div class="form-label-sm">月份</div><input type="month" id="finance-month" class="form-input" onchange="loadFinanceOverview()">
@@ -892,7 +944,7 @@ function switchTab(n,btn){
   if(n==='overtime') loadOvertime();
   if(n==='profile') renderProfile();
   if(n==='admin')   loadAdmin();
-  if(n==='finance') loadFinanceOverview();
+  if(n==='finance'){ loadFinanceMonthsHistory(); loadFinanceOverview(); }
 }
 
 // ── 打卡頁面 ─────────────────────────────────────────────────
@@ -1313,19 +1365,66 @@ function calcLeaveHours(){
   preview.style.display='block';
 }
 
-function onProofSelected(input){
+const PROOF_MAX_MB=5;
+async function onProofSelected(input){
   const file=input.files[0]; if(!file)return;
+  const nameEl=document.getElementById('proof-name');
+  if(file.size>PROOF_MAX_MB*1024*1024){
+    nameEl.textContent=`檔案過大（${(file.size/1024/1024).toFixed(1)}MB），請壓縮後再上傳，上限 ${PROOF_MAX_MB}MB`;
+    proofFileData=null; input.value=''; return;
+  }
+  if(file.type.startsWith('image/')){
+    nameEl.textContent='圖片處理中…';
+    try{
+      const compressed=await compressImage(file,1600,0.8,1.2*1024*1024);
+      proofFileData={base64:compressed.base64,mimeType:compressed.mimeType,name:file.name};
+      document.getElementById('proof-img').src=`data:${compressed.mimeType};base64,${compressed.base64}`;
+      document.getElementById('proof-preview').style.display='block';
+      document.getElementById('proof-placeholder').style.display='none';
+      nameEl.textContent=`已選擇：${file.name}（壓縮後約 ${Math.round(compressed.base64.length*0.75/1024)}KB）`;
+    }catch(e){
+      nameEl.textContent='圖片處理失敗：'+e.message;
+      proofFileData=null;
+    }
+    return;
+  }
   const reader=new FileReader();
   reader.onload=e=>{
     proofFileData={base64:e.target.result.split(',')[1],mimeType:file.type,name:file.name};
-    document.getElementById('proof-name').textContent=`已選擇：${file.name}`;
-    if(file.type.startsWith('image/')){
-      document.getElementById('proof-img').src=e.target.result;
-      document.getElementById('proof-preview').style.display='block';
-      document.getElementById('proof-placeholder').style.display='none';
-    }
+    nameEl.textContent=`已選擇：${file.name}`;
   };
   reader.readAsDataURL(file);
+}
+
+function compressImage(file,maxDim,quality,targetBytes){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      let{width,height}=img;
+      if(width>maxDim||height>maxDim){
+        const scale=maxDim/Math.max(width,height);
+        width=Math.round(width*scale); height=Math.round(height*scale);
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      canvas.getContext('2d').drawImage(img,0,0,width,height);
+      let q=quality;
+      const tryEncode=()=>{
+        canvas.toBlob(blob=>{
+          if(!blob){reject(new Error('無法產生圖片'));return;}
+          if(blob.size>targetBytes&&q>0.3){ q-=0.15; tryEncode(); return; }
+          const fr=new FileReader();
+          fr.onload=()=>resolve({base64:fr.result.split(',')[1],mimeType:'image/jpeg'});
+          fr.readAsDataURL(blob);
+        },'image/jpeg',q);
+      };
+      tryEncode();
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('圖片讀取失敗')); };
+    img.src=url;
+  });
 }
 
 async function loadLeave(){
@@ -1502,16 +1601,28 @@ function renderMyPayrollList(){
     const statusColor=r.status==='已簽名'?'#2a7a5a':'#b07d2a';
     let detail='';
     if(isOpen){
-      detail=`<div class="leave-req-detail" style="margin-top:8px">
-        在職期間工資：${r.inServicePay}<br>
-        福利金預支：${r.welfareAdvance}<br>
-        退休金提繳率：${r.pensionRate}（本月提繳 ${r.pensionAmount}）<br>
-        勞保費：${r.laborIns}　健保費：${r.healthIns}　二代健保扣繳：${r.secondGenHealthIns}<br>
-        特休可休：${r.specialEntitled} 小時　已休：${r.specialUsed} 小時<br>
-        補休累計：${r.compRemaining} 小時<br>
-        扣款小計：${r.deductionSubtotal}<br>
-        <strong>實領工資金額：${r.netPay}</strong>（發放日 ${r.payDay}）<br>
-        ${r.status==='已簽名'?'簽名時間：'+r.signedAt:''}
+      const tdS='padding:6px 4px;border-bottom:1px solid var(--bg);font-size:12.5px';
+      const tdNum=tdS+';text-align:right;font-variant-numeric:tabular-nums';
+      detail=`<div style="margin-top:10px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td colspan="2" style="${tdS};font-weight:700;color:var(--deep-blue)">薪資</td></tr>
+          <tr><td style="${tdS}">在職期間工資</td><td style="${tdNum}">${r.inServicePay}</td></tr>
+          <tr><td style="${tdS};font-weight:700">工資類小計</td><td style="${tdNum};font-weight:700">${r.inServicePay}</td></tr>
+          <tr><td colspan="2" style="${tdS};font-weight:700;color:var(--rose);padding-top:12px">扣款</td></tr>
+          <tr><td style="${tdS}">勞保費</td><td style="${tdNum}">${r.laborIns}</td></tr>
+          <tr><td style="${tdS}">健保費</td><td style="${tdNum}">${r.healthIns}</td></tr>
+          <tr><td style="${tdS}">二代健保扣繳</td><td style="${tdNum}">${r.secondGenHealthIns}</td></tr>
+          <tr><td style="${tdS}">事假扣款（${r.personalHours||0} 小時）</td><td style="${tdNum}">${r.personalDeduction||0}</td></tr>
+          <tr><td style="${tdS}">病假扣款（${r.sickHours||0} 小時，半薪）</td><td style="${tdNum}">${r.sickDeduction||0}</td></tr>
+          <tr><td style="${tdS};font-weight:700">扣款類小計</td><td style="${tdNum};font-weight:700">${r.deductionSubtotal}</td></tr>
+          <tr><td colspan="2" style="${tdS};font-weight:700;color:var(--deep-blue);padding-top:12px">其他</td></tr>
+          <tr><td style="${tdS}">退休金提繳率</td><td style="${tdNum}">${r.pensionRate}（本月 ${r.pensionAmount}）</td></tr>
+          <tr><td style="${tdS}">特休可休 / 已休</td><td style="${tdNum}">${r.specialEntitled} / ${r.specialUsed} 小時</td></tr>
+          <tr><td style="${tdS}">補休累計</td><td style="${tdNum}">${r.compRemaining} 小時</td></tr>
+          <tr><td style="padding:10px 4px;font-weight:800;font-size:14px">實領工資金額</td><td style="padding:10px 4px;text-align:right;font-weight:800;font-size:14px;color:var(--green)">${r.netPay}</td></tr>
+        </table>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:4px">發放日 ${r.payDay}　福利金預支 ${r.welfareAdvance}（發放日 ${r.advancePayDay}）</div>
+        ${r.status==='已簽名'?`<div style="font-size:11px;color:var(--text-soft);margin-top:4px">簽名時間：${r.signedAt}</div>`:''}
       </div>
       ${r.status==='待簽名'?`<button class="btn-primary" style="margin-top:10px" onclick="signPayroll(${r.rowIdx})">✓ 確認無誤並簽核</button>`:''}`;
     }
@@ -1564,7 +1675,10 @@ function loadAdmin(){
   document.getElementById('btn-export-payroll').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-card').style.display=session.role>=2?'block':'none';
+  document.getElementById('payroll-months-card').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-card').style.display=session.role>=2?'block':'none';
+  document.getElementById('emp-manage-section').style.display=session.role>=2?'block':'none';
+  if(session.role>=2){ loadPayrollMonthsHistory(); loadEmpManageList(); }
   loadAdminAttendance();
   loadAdminLeaveList();
   loadAdminPatchList();
@@ -1867,7 +1981,7 @@ async function loadSalaryConfig(){
     const rows=result.configs||[];
     salaryConfigCache={};
     rows.forEach(c=>salaryConfigCache[c.eid]=c);
-    sel.innerHTML='<option value="">請選擇員工</option>'+rows.map(c=>`<option value="${c.eid}">${c.name}（${c.eid}）</option>`).join('');
+    sel.innerHTML='<option value="">請選擇員工</option>'+rows.map(c=>`<option value="${c.eid}">${c.name}（${c.eid}）· ${c.dept||''} ${c.title||''}</option>`).join('');
   }catch(e){ sel.innerHTML='<option value="">載入失敗</option>'; }
 }
 
@@ -1878,7 +1992,7 @@ function renderSalaryConfigForm(){
   const c=salaryConfigCache[eid];
   listEl.innerHTML=`
     <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;padding:14px 20px">
-      <div style="font-size:13px;font-weight:700">${c.name}（${c.eid}）</div>
+      <div style="font-size:13px;font-weight:700">${c.name}（${c.eid}）<span style="font-weight:400;color:var(--text-soft)">· ${c.dept||''} ${c.title||''}</span></div>
       <div class="form-row-2">
         <div><div class="form-label-sm">目標薪資(底薪)</div><input type="number" class="form-input sc-field" data-field="targetSalary" value="${c.targetSalary||0}"></div>
         <div><div class="form-label-sm">基本工資</div><input type="number" class="form-input sc-field" data-field="baseSalary" value="${c.baseSalary||29500}"></div>
@@ -1917,9 +2031,132 @@ async function populateEmpQuerySelect(){
   if(sel.dataset.loaded)return;
   try{
     const result=await api('get_employees');
-    sel.innerHTML='<option value="">請選擇員工</option>'+(result.employees||[]).map(e=>`<option value="${e.eid}">${e.name}（${e.eid}）</option>`).join('');
+    sel.innerHTML='<option value="">請選擇員工</option>'+(result.employees||[]).map(e=>`<option value="${e.eid}">${e.name}（${e.eid}）· ${e.dept||''} ${e.title||''}</option>`).join('');
     sel.dataset.loaded='1';
   }catch(e){}
+}
+
+// ── 員工資料管理：新增／編輯員工（身分證字號/生日/性別自動判斷）──
+function genderFromNationalIdClient(id){
+  const m=String(id||'').trim().toUpperCase().match(/^[A-Z](\d)\d{8}$/);
+  if(!m)return'';
+  return m[1]==='1'?'男':(m[1]==='2'?'女':'');
+}
+function updateGenderPreview(inputId,outputId){
+  const el=document.getElementById(outputId);
+  if(el) el.textContent=genderFromNationalIdClient(document.getElementById(inputId).value)||'—';
+}
+function toggleEmpCreateForm(){
+  const el=document.getElementById('emp-create-form');
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+async function submitCreateEmployee(){
+  const msg=document.getElementById('ec-msg');
+  const eid=document.getElementById('ec-eid').value.trim();
+  const name=document.getElementById('ec-name').value.trim();
+  if(!eid||!name){ msg.textContent='請輸入員工編號與姓名'; msg.className='form-msg err'; return; }
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('create_employee',{
+      eid, name,
+      nick:document.getElementById('ec-nick').value.trim(),
+      dept:document.getElementById('ec-dept').value.trim(),
+      title:document.getElementById('ec-title').value.trim(),
+      email:document.getElementById('ec-email').value.trim(),
+      role:document.getElementById('ec-role').value,
+      hire:document.getElementById('ec-hire').value.replace(/-/g,'/'),
+      nationalId:document.getElementById('ec-nid').value.trim(),
+      birthdate:document.getElementById('ec-dob').value.replace(/-/g,'/'),
+    });
+    msg.textContent='✓ '+result.message; msg.className='form-msg ok';
+    ['ec-eid','ec-name','ec-nick','ec-email','ec-dept','ec-title','ec-hire','ec-nid','ec-dob'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('ec-gender-preview').textContent='—';
+    document.getElementById('emp-create-form').style.display='none';
+    document.getElementById('emp-query-eid').dataset.loaded='';
+    populateEmpQuerySelect();
+    loadEmpManageList();
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+let empManageList=[], empManageExpanded=null;
+async function loadEmpManageList(){
+  const el=document.getElementById('emp-manage-list');
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const result=await api('get_employees_full');
+    empManageList=result.employees||[];
+    renderEmpManageList();
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+function renderEmpManageList(){
+  const el=document.getElementById('emp-manage-list');
+  if(!empManageList.length){ el.innerHTML='<div class="empty-state">尚無員工資料</div>'; return; }
+  el.innerHTML=empManageList.map(e=>{
+    const expanded=empManageExpanded===e.eid;
+    return `<div class="settings-row" style="cursor:pointer;flex-direction:column;align-items:stretch" onclick="toggleEmpManageRow('${e.eid}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:700">${e.name}（${e.eid}）${e.status!=='在職中'?`<span style="color:var(--rose);font-size:10px">· ${e.status}</span>`:''}</div>
+          <div style="font-size:11px;color:var(--text-soft)">${e.dept||''} ${e.title||''}</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-soft)">${expanded?'▲':'▼'}</div>
+      </div>
+      ${expanded?renderEmpEditForm(e):''}
+    </div>`;
+  }).join('');
+}
+function toggleEmpManageRow(eid){
+  empManageExpanded=empManageExpanded===eid?null:eid;
+  renderEmpManageList();
+}
+function renderEmpEditForm(e){
+  return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px">
+    <div class="form-row-2">
+      <div><div class="form-label-sm">姓名</div><input type="text" class="form-input" id="ee-name-${e.eid}" value="${e.name||''}"></div>
+      <div><div class="form-label-sm">暱稱</div><input type="text" class="form-input" id="ee-nick-${e.eid}" value="${e.nick||''}"></div>
+    </div>
+    <div class="form-row-2">
+      <div><div class="form-label-sm">部門</div><input type="text" class="form-input" id="ee-dept-${e.eid}" value="${e.dept||''}"></div>
+      <div><div class="form-label-sm">職稱</div><input type="text" class="form-input" id="ee-title-${e.eid}" value="${e.title||''}"></div>
+    </div>
+    <div><div class="form-label-sm">Email</div><input type="email" class="form-input" id="ee-email-${e.eid}" value="${e.email||''}"></div>
+    <div class="form-row-2">
+      <div><div class="form-label-sm">到職日</div><input type="date" class="form-input" id="ee-hire-${e.eid}" value="${(e.hire||'').replace(/\//g,'-')}"></div>
+      <div><div class="form-label-sm">在職狀態</div><select class="form-select" id="ee-status-${e.eid}">
+        <option value="在職中" ${e.status==='在職中'?'selected':''}>在職中</option>
+        <option value="已離職" ${e.status==='已離職'?'selected':''}>已離職</option>
+      </select></div>
+    </div>
+    <div class="form-row-2">
+      <div><div class="form-label-sm">身分證字號</div><input type="text" class="form-input" id="ee-nid-${e.eid}" value="${e.nationalId||''}" oninput="updateGenderPreview('ee-nid-${e.eid}','ee-gender-${e.eid}')"></div>
+      <div><div class="form-label-sm">出生年月日</div><input type="date" class="form-input" id="ee-dob-${e.eid}" value="${(e.birthdate||'').replace(/\//g,'-')}"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-soft)">性別（依身分證字號自動判斷）：<span id="ee-gender-${e.eid}">${e.gender||'—'}</span></div>
+    <button class="btn-primary" onclick="submitUpdateEmployee('${e.eid}')">儲存變更</button>
+    <div class="form-msg" id="ee-msg-${e.eid}"></div>
+  </div>`;
+}
+async function submitUpdateEmployee(eid){
+  const msg=document.getElementById('ee-msg-'+eid);
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('update_employee',{
+      targetEid:eid,
+      name:document.getElementById('ee-name-'+eid).value.trim(),
+      nick:document.getElementById('ee-nick-'+eid).value.trim(),
+      dept:document.getElementById('ee-dept-'+eid).value.trim(),
+      title:document.getElementById('ee-title-'+eid).value.trim(),
+      email:document.getElementById('ee-email-'+eid).value.trim(),
+      hire:document.getElementById('ee-hire-'+eid).value.replace(/-/g,'/'),
+      status:document.getElementById('ee-status-'+eid).value,
+      nationalId:document.getElementById('ee-nid-'+eid).value.trim(),
+      birthdate:document.getElementById('ee-dob-'+eid).value.replace(/-/g,'/'),
+    });
+    showToast('✓ '+result.message);
+    document.getElementById('emp-query-eid').dataset.loaded='';
+    populateEmpQuerySelect();
+    loadEmpManageList();
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
 
 // ── 員工出勤查詢：預設收合，只顯示筆數摘要，點擊才展開細節 ──────
@@ -2387,7 +2624,39 @@ async function publishPayroll(){
     const result=await api('publish_payroll',{month:monthVal.replace('-','/')});
     msg.textContent='✓ '+result.message;msg.className='form-msg ok';
     loadPayrollOverview();
+    loadPayrollMonthsHistory();
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+// 薪資單發布歷史：列出最近12個月，標示哪些已發布/未發布，點擊直接切換查看
+async function loadPayrollMonthsHistory(){
+  const el=document.getElementById('payroll-months-list');
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const result=await api('get_payroll_months');
+    const byMonth={};
+    (result.months||[]).forEach(m=>byMonth[m.month]=m);
+    const now=new Date();
+    const list=[];
+    for(let i=0;i<12;i++){
+      const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const month=`${d.getFullYear()}/${f2(d.getMonth()+1)}`;
+      list.push(byMonth[month]||{month, total:0, signed:0});
+    }
+    el.innerHTML=list.map(m=>{
+      const published=m.total>0;
+      const statusText=published?`已發布 ${m.total} 份，已簽 ${m.signed} 份`:'尚未發布';
+      return `<div class="settings-row" style="cursor:pointer" onclick="selectPayrollMonth('${m.month}')">
+        <div style="font-size:13px;font-weight:700">${m.month}</div>
+        <div style="font-size:11px;color:${published?(m.signed===m.total?'#2a7a5a':'#b07d2a'):'var(--text-soft)'}">${statusText}</div>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+function selectPayrollMonth(month){
+  document.getElementById('report-month').value=month.replace('/','-');
+  loadPayrollOverview();
+  document.getElementById('payroll-overview-card').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 async function loadPayrollOverview(){
@@ -2425,6 +2694,31 @@ async function resetPayrollSignature(rowIdx){
 }
 
 // ── 財務頁籤：只看應發金額＋簽核狀態 ────────────────────────────
+async function loadFinanceMonthsHistory(){
+  const el=document.getElementById('finance-months-list');
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const result=await api('get_payroll_months');
+    const byMonth={};
+    (result.months||[]).forEach(m=>byMonth[m.month]=m);
+    const now=new Date();
+    const list=[];
+    for(let i=0;i<12;i++){
+      const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const month=`${d.getFullYear()}/${f2(d.getMonth()+1)}`;
+      list.push(byMonth[month]||{month, total:0, signed:0});
+    }
+    el.innerHTML=list.map(m=>{
+      const published=m.total>0;
+      const statusText=published?`已發布 ${m.total} 份，已簽 ${m.signed} 份`:'尚未發布';
+      return `<div class="settings-row" style="cursor:pointer" onclick="document.getElementById('finance-month').value='${m.month.replace('/','-')}';loadFinanceOverview()">
+        <div style="font-size:13px;font-weight:700">${m.month}</div>
+        <div style="font-size:11px;color:${published?(m.signed===m.total?'#2a7a5a':'#b07d2a'):'var(--text-soft)'}">${statusText}</div>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
 async function loadFinanceOverview(){
   const monthInput=document.getElementById('finance-month');
   if(!monthInput.value) monthInput.value=todayKey().slice(0,7).replace('/','-');
