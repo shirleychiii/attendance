@@ -417,7 +417,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div class="card"><div class="card-inner" style="background:var(--blue-lo);border-radius:var(--radius-md)">
     <div style="font-size:12px;color:var(--deep-blue);line-height:1.8">
       <div style="font-weight:700;margin-bottom:6px">📋 加班與提早上班政策</div>
-      依勞動基準法第35條規定，雇主須於正常工時8小時結束後，給予勞工至少30分鐘之休息，方可認列延長工時（加班）。因此，<strong>加班時數自18:30起算</strong>，申請加班結束時間最早為19:00。<br><br>
+      依勞動基準法第35條規定，雇主須於正常工時8小時結束後，給予勞工至少30分鐘之休息，方可認列延長工時（加班）。因此，<strong>加班時數自當天實際上班時間 + 8工時 + 1午休 + 0.5小時休息後起算</strong>（例如09:00到職為18:30起算，09:30到職則為19:00起算），申請加班結束時間依此門檻計算。<br><br>
       為了維護每位夥伴的工作健康與身心調適，公司以<strong>補休為原則</strong>，鼓勵大家適時休息、維持良好工作節奏。若有特殊需求，員工亦可依勞基法規定申請加班費，公司尊重每位夥伴的選擇。<br><br>
       ⚠️ 請於當日 <strong>12:00 前</strong> 提出申請並等待主管核准，系統才會開放對應時段的打卡。
     </div>
@@ -432,7 +432,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <option value="加班">加班（延後下班）</option>
       </select>
     </div>
-    <div><div class="form-label-sm">申請日期</div><input type="date" id="ot-date" class="form-input"></div>
+    <div><div class="form-label-sm">申請日期</div><input type="date" id="ot-date" class="form-input" onchange="renderOtLateOptions()"></div>
     <div id="ot-early-row">
       <div class="form-label-sm">預計上班時間</div>
       <select id="ot-start-time" class="form-select">
@@ -446,17 +446,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     </div>
     <div id="ot-late-row" style="display:none">
       <div class="form-label-sm">預計加班至</div>
-      <select id="ot-end-time" class="form-select">
-        <option value="19:00">19:00（加班 30 分鐘）</option>
-        <option value="19:30">19:30（加班 1 小時）</option>
-        <option value="20:00">20:00（加班 1.5 小時）</option>
-        <option value="20:30">20:30（加班 2 小時）</option>
-        <option value="21:00">21:00（加班 2.5 小時）</option>
-        <option value="21:30">21:30（加班 3 小時）</option>
-        <option value="22:00">22:00（加班 3.5 小時）</option>
-        <option value="22:30">22:30（加班 4 小時）</option>
-      </select>
-      <div style="font-size:11px;color:var(--text-soft);margin-top:5px">※ 加班時數自 18:30 起算。依勞基法：前2小時薪資×4/3，第3小時起×5/3。公司以補休為主，如需加班費請於備註說明。</div>
+      <select id="ot-end-time" class="form-select"></select>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:5px" id="ot-late-hint"></div>
     </div>
     <div>
       <div class="form-label-sm">申請原因 <span class="req">*</span></div>
@@ -612,7 +603,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <div><div class="form-label-sm">月份</div><input type="month" id="emp-query-month" class="form-input" onchange="loadEmpHistory()"></div>
       </div>
       <button class="btn-secondary" id="btn-emp-add-punch" onclick="toggleEmpAddPunch()" style="display:none">＋ 新增打卡</button>
-      <button class="btn-secondary" id="btn-emp-add-leave" onclick="toggleEmpAddLeave()" style="display:none">＋ 新增請假紀錄</button>
+      <button class="btn-secondary" id="btn-emp-add-leave" onclick="toggleEmpAddLeave()" style="display:none">＋ 新增請假紀錄／給特殊假別（婚假、育嬰假等）</button>
+      <div id="emp-add-leave-hint" style="display:none;font-size:11px;color:var(--text-soft)">💡 婚假、產假、陪產假、育嬰假、家庭照顧假、喪假、公假等較少使用的假別，選好上方員工後點這裡直接給假即可，無需員工自行申請。</div>
     </div></div>
     <div class="card" id="emp-add-punch-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
       <div class="form-row-2">
@@ -636,6 +628,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
           <option value="喪假">喪假</option>
           <option value="產假">產假</option>
           <option value="陪產假">陪產假</option>
+          <option value="育嬰假">育嬰假</option>
           <option value="家庭照顧假">家庭照顧假</option>
           <option value="公假">公假</option>
           <option value="其他">其他</option>
@@ -723,6 +716,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div class="section-label" id="payroll-publish-label" style="display:none">薪資單發布與簽核進度</div>
     <div class="card" id="payroll-publish-card" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
       <button class="btn-primary" onclick="publishPayroll()">📤 發布本月薪資單</button>
+      <button class="btn-secondary" onclick="retractMonthPayroll()">🗑 收回本月薪資單（僅收回未簽名的）</button>
       <div class="form-msg" id="payroll-publish-msg"></div>
     </div></div>
     <div class="card" id="payroll-months-card" style="display:none"><div id="payroll-months-list"><div class="empty-state">載入中…</div></div></div>
@@ -740,8 +734,14 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div><div class="mini-name" id="mini-name-screen-finance"></div><div class="mini-meta" id="mini-meta-screen-finance"></div></div>
     <div class="mini-badge" id="mini-badge-screen-finance"></div>
   </div>
-  <div class="section-label">發布狀態（近12個月）</div>
-  <div class="card" id="finance-months-list"><div class="empty-state">載入中…</div></div>
+  <div class="section-label">本月發布狀態</div>
+  <div class="card" id="finance-current-month-status"><div class="empty-state">載入中…</div></div>
+  <div class="section-label">查詢其他月份</div>
+  <div class="card"><div class="card-inner" style="display:flex;gap:8px;align-items:flex-end">
+    <div style="flex:1"><div class="form-label-sm">月份</div><input type="month" id="finance-query-month" class="form-input"></div>
+    <button class="btn-secondary" style="width:auto;padding:12px 18px;white-space:nowrap" onclick="queryFinanceMonth()">查詢</button>
+  </div></div>
+  <div class="card" id="finance-query-result" style="display:none"></div>
   <div class="section-label">薪資發放總覽</div>
   <div class="card"><div class="card-inner">
     <div class="form-label-sm">月份</div><input type="month" id="finance-month" class="form-input" onchange="loadFinanceOverview()">
@@ -1020,31 +1020,33 @@ async function doPunch(type){
   const hasOut = todayPunchCache.find(r=>r.date===today&&r.type==='下班');
   if(type==='in'&&hasIn){showToast('今日已完成上班打卡');return;}
   if(type==='out'&&hasOut){showToast('今日已完成下班打卡');return;}
-  // ── 打卡時間限制 ──
   const punchNow=new Date(), hm=punchNow.getHours()*60+punchNow.getMinutes();
-  const T0830=8*60+30, T0930=9*60+30, T1800=18*60, T1830=18*60+30;
-  if(type==='in'){
-    if(hm<=T0830){showToast('⚠ 上班打卡最早 08:31，如需提早上班請先申請');return;}
-    if(hm>T0930){
-      // 09:30後打卡標記遲到，但仍允許（補卡或申請）
-      // 這裡仍允許打卡，遲到由後端標記
+  // ── 例假日／休息日：沒有事先核准的加班或提早上班申請就不能打卡 ──
+  const todayWd=punchNow.getDay();
+  if(todayWd===0||todayWd===6){
+    const approvedToday=(await getApprovedOvertimeToday('加班'))||(await getApprovedOvertimeToday('提早上班'));
+    if(!approvedToday){
+      showToast(`⚠ 今天是${todayWd===0?'例假':'休息'}日，需先申請加班獲准才能打卡`);
+      return;
     }
   }
+  // ── 打卡時間限制 ──
+  const T0830=8*60+30, T0930=9*60+30, T1830=18*60+30;
+  if(type==='in'){
+    if(hm<=T0830){showToast('⚠ 上班打卡最早 08:31，如需提早上班請先申請');return;}
+    // 09:30後打卡標記遲到，但仍允許（後端會依打卡時間自動標記遲到）
+  }
   if(type==='out'){
-    // 檢查有無核准的提早上班申請
-    const approvedEarly=await getApprovedOvertimeToday('提早上班');
-    let earliestOut=T1800;
-    if(approvedEarly){
-      const[sh,sm]=approvedEarly.startTime.split(':').map(Number);
-      earliestOut=(sh*60+sm)+8*60; // 上班時間+8小時
-    }
-    if(hm<earliestOut){
-      const etH=Math.floor(earliestOut/60), etM=earliestOut%60;
-      showToast(`⚠ 最早 ${String(etH).padStart(2,'0')}:${String(etM).padStart(2,'0')} 才能下班打卡`);return;
-    }
-    // 檢查有無核准的加班申請
+    // 早退／遲到都允許打卡（只註記，不擋下）；只有「延後下班」超過核准或門檻時間才擋下
     const approvedOT=await getApprovedOvertimeToday('加班');
-    const latestOut=approvedOT?parseInt(approvedOT.endTime.split(':')[0])*60+parseInt(approvedOT.endTime.split(':')[1]):T1830;
+    let latestOut;
+    if(approvedOT){
+      latestOut=parseInt(approvedOT.endTime.split(':')[0])*60+parseInt(approvedOT.endTime.split(':')[1]);
+    }else{
+      // 沒有核准加班時，門檻依實際上班時間往後推：上班+8工時+1午休+0.5小時休息才開始算加班
+      // 找不到今天的上班打卡紀錄則以彈性最早 09:00 為基準（等同原本固定 18:30）
+      latestOut=hasIn?(()=>{const[ih,im]=hasIn.time.split(':').map(Number);return ih*60+im+9*60+30;})():T1830;
+    }
     if(hm>latestOut){
       showToast(`⚠ 超過打卡時間，如需加班請先申請`);return;
     }
@@ -1673,6 +1675,7 @@ function loadAdmin(){
   document.getElementById('settings-non-admin-note').style.display=session.role>=2?'none':'block';
   document.getElementById('btn-emp-add-punch').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-emp-add-leave').style.display=session.role>=2?'block':'none';
+  document.getElementById('emp-add-leave-hint').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-roster').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-payroll').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
@@ -1734,7 +1737,7 @@ async function loadAdminAttendance(){
           <div class="emp-avatar-sm">${e.name.slice(-1)}</div>
           <div class="emp-info">
             <div class="emp-name-sm">${e.name}${e.nick?'（'+e.nick+'）':''}</div>
-            <div class="emp-meta-sm">${e.eid} · ${e.dept}</div>
+            <div class="emp-meta-sm">${e.eid} · ${e.dept||''} ${e.title||''}</div>
           </div>
           <div class="punch-status-tag ${tagClass}">${tagText}</div>
         </div>`;
@@ -1758,9 +1761,10 @@ async function loadAdminLeaveList(){
       const rid='leave_'+r.rowIdx;
       return '<div class="leave-req-card">'
         +'<div class="leave-req-header">'
-        +'<span class="leave-req-name">'+r.name+'</span>'
+        +'<span class="leave-req-name">'+r.name+' <span style="font-size:11px;color:var(--text-soft);font-weight:400">'+r.eid+'</span></span>'
         +'<span class="leave-req-type ltype-'+r.type+'">'+r.type+' · '+days+'天</span>'
         +'</div>'
+        +'<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">'+(r.dept||'')+' '+(r.title||'')+'</div>'
         +'<div class="leave-req-detail">'+r.start+(r.start!==r.end?' ~ '+r.end:'')+' · '+(r.unit||'')+(r.note?'<br>說明：'+r.note:'')+(r.proofUrl?'<br><a href="'+r.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':'')+'</div>'
         +(canReview
           ?'<div style="margin-bottom:8px"><input type="text" id="'+rid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>'
@@ -1788,9 +1792,10 @@ async function loadAdminPatchList(){
       const pid='patch_'+r.rowIdx;
       return '<div class="leave-req-card">'
         +'<div class="leave-req-header">'
-        +'<span class="leave-req-name">'+r.name+'</span>'
+        +'<span class="leave-req-name">'+r.name+' <span style="font-size:11px;color:var(--text-soft);font-weight:400">'+r.eid+'</span></span>'
         +'<span class="leave-req-type ltype-補卡">'+(r.type==='上班卡'?'上班補卡':'下班補卡')+'</span>'
         +'</div>'
+        +'<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">'+(r.dept||'')+' '+(r.title||'')+'</div>'
         +'<div class="leave-req-detail">'+r.date+' '+r.time+'<br>原因：'+r.note+'</div>'
         +'<div style="margin-bottom:8px"><input type="text" id="'+pid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>'
         +'<div class="leave-req-actions">'
@@ -1816,9 +1821,10 @@ async function loadAdminOvertimeList(){
         const oid='ot_'+r.rowIdx;
         return '<div class="leave-req-card">'
           +'<div class="leave-req-header">'
-          +'<span class="leave-req-name">'+r.name+'</span>'
+          +'<span class="leave-req-name">'+r.name+' <span style="font-size:11px;color:var(--text-soft);font-weight:400">'+r.eid+'</span></span>'
           +'<span class="leave-req-type ltype-補卡">'+r.type+'</span>'
           +'</div>'
+          +'<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">'+(r.dept||'')+' '+(r.title||'')+'</div>'
           +'<div class="leave-req-detail">'
           +r.date+' · '+(r.type==='提早上班'?'預計 '+r.startTime+' 上班':'加班至 '+r.endTime)
           +'<br>原因：'+r.note+' · '+r.compensation
@@ -1847,9 +1853,10 @@ async function loadAdminCancelList(){
       const cid='cancel_'+r.rowIdx;
       return `<div class="leave-req-card">
         <div class="leave-req-header">
-          <span class="leave-req-name">${r.name}</span>
+          <span class="leave-req-name">${r.name} <span style="font-size:11px;color:var(--text-soft);font-weight:400">${r.eid}</span></span>
           <span class="leave-req-type ltype-補卡">${r.cancelType}</span>
         </div>
+        <div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">${r.dept||''} ${r.title||''}</div>
         <div class="leave-req-detail">${r.date}${r.relatedType?' · '+r.relatedType:''}<br>原因：${r.note}</div>
         <div style="margin-bottom:8px"><input type="text" id="${cid}_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>
         <div class="leave-req-actions">
@@ -1884,28 +1891,28 @@ async function toggleReviewHistory(kind){
     if(kind==='leave'){
       const r=await api('get_leave_requests');
       items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+' · '+x.type, status:x.status,
+        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.type, status:x.status,
         detail:`${x.start}${x.start!==x.end?' ~ '+x.end:''} · ${x.unit||''}`,
         reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
       }));
     } else if(kind==='patch'){
       const r=await api('get_patch_requests');
       items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+' · '+(x.type==='上班卡'?'上班補卡':'下班補卡'), status:x.status,
+        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+(x.type==='上班卡'?'上班補卡':'下班補卡'), status:x.status,
         detail:`${x.date} ${x.time}`,
         reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
       }));
     } else if(kind==='ot'){
       const r=await api('get_overtime_requests',{adminView:true});
       items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+' · '+x.type, status:x.status,
+        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.type, status:x.status,
         detail:`${x.date} · ${x.type==='提早上班'?'預計 '+x.startTime+' 上班':'加班至 '+x.endTime}`,
         reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
       }));
     } else if(kind==='cancel'){
       const r=await api('get_cancel_requests');
       items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+' · '+x.cancelType, status:x.status,
+        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.cancelType, status:x.status,
         detail:`${x.date}${x.relatedType?' · '+x.relatedType:''}`,
         reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
       }));
@@ -1927,7 +1934,7 @@ async function loadAdminResetPw(){
     const result=await api('get_employees');
     rpEl.innerHTML=(result.employees||[]).map(e=>`
       <div class="settings-row">
-        <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.title}</div></div>
+        <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.dept||''} ${e.title||''}</div></div>
         <button onclick="promptResetPw('${e.eid}','${e.name}')" style="font-size:11px;font-weight:700;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-family:inherit">重設密碼</button>
       </div>`).join('');
   } catch(e){ rpEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
@@ -1941,7 +1948,7 @@ async function loadAdminRoles(){
     const result=await api('get_employees');
     roleEl.innerHTML=(result.employees||[]).map(e=>`
       <div class="settings-row">
-        <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.title}</div></div>
+        <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.dept||''} ${e.title||''}</div></div>
         <div style="display:flex;align-items:center;gap:10px">
           <label style="font-size:11px;color:var(--text-soft);display:flex;align-items:center;gap:4px"><input type="checkbox" ${e.isFinance?'checked':''} onchange="setFinanceFlag('${e.eid}',this.checked)">財務</label>
           <select onchange="setRole('${e.eid}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit">
@@ -2520,9 +2527,11 @@ function renderPdfReviewPanel(){
   const el=document.getElementById('pdf-review-list');
   if(!pdfReviewData.employees.length){el.innerHTML='<div class="empty-state">無在職員工資料</div>';return;}
   el.innerHTML=pdfReviewData.employees.map(emp=>{
-    if(!emp.days.length) return `<div class="leave-req-card"><div class="leave-req-name">${emp.name}（${emp.eid}）</div><div class="leave-req-detail">本月出勤正常，無異常紀錄</div></div>`;
+    const empSub=`<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">${emp.dept||''} ${emp.title||''}</div>`;
+    if(!emp.days.length) return `<div class="leave-req-card"><div class="leave-req-name">${emp.name}（${emp.eid}）</div>${empSub}<div class="leave-req-detail">本月出勤正常，無異常紀錄</div></div>`;
     return `<div class="leave-req-card">
-      <div class="leave-req-name" style="margin-bottom:8px">${emp.name}（${emp.eid}）</div>
+      <div class="leave-req-name" style="margin-bottom:2px">${emp.name}（${emp.eid}）</div>
+      ${empSub}
       ${emp.days.map(d=>`
         <div style="border-top:1px solid var(--bg);padding:10px 0">
           <div style="font-size:12px;font-weight:700;margin-bottom:4px">${d.date}${d.isHireDay?'（到職日）':''}　${d.inTime||d.outTime?`${d.inTime||'—'} – ${d.outTime||'—'}`:(d.isFullDayLeave?'休假':'')}</div>
@@ -2632,7 +2641,21 @@ async function publishPayroll(){
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
 
-// 薪資單發布歷史：列出最近12個月，標示哪些已發布/未發布，點擊直接切換查看
+async function retractMonthPayroll(){
+  const monthVal=document.getElementById('report-month').value;
+  const msg=document.getElementById('payroll-publish-msg');
+  if(!monthVal){msg.textContent='請選擇報表月份';msg.className='form-msg err';return;}
+  if(!confirm(`確定要收回 ${monthVal} 尚未簽名的薪資單嗎？已簽名的員工不會被收回，需先個別重置簽名。`))return;
+  msg.textContent='收回中…';msg.className='form-msg';
+  try{
+    const result=await api('retract_month_payroll',{month:monthVal.replace('-','/')});
+    msg.textContent='✓ '+result.message;msg.className='form-msg ok';
+    loadPayrollOverview();
+    loadPayrollMonthsHistory();
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+// 薪資單發布歷史：列出最近3個月，標示哪些已發布/未發布，點擊直接切換查看
 async function loadPayrollMonthsHistory(){
   const el=document.getElementById('payroll-months-list');
   el.innerHTML='<div class="empty-state">載入中…</div>';
@@ -2642,7 +2665,7 @@ async function loadPayrollMonthsHistory(){
     (result.months||[]).forEach(m=>byMonth[m.month]=m);
     const now=new Date();
     const list=[];
-    for(let i=0;i<12;i++){
+    for(let i=0;i<3;i++){
       const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
       const month=`${d.getFullYear()}/${f2(d.getMonth()+1)}`;
       list.push(byMonth[month]||{month, total:0, signed:0});
@@ -2678,11 +2701,12 @@ async function loadPayrollOverview(){
       <div class="settings-row">
         <div>
           <div style="font-size:13px;font-weight:700">${r.name} <span style="font-size:11px;color:var(--text-soft)">${r.eid}</span></div>
+          <div style="font-size:11px;color:var(--text-soft)">${r.dept||''} ${r.title||''}</div>
           <div style="font-size:11px;color:var(--text-soft)">實領 ${r.netPay}（${r.payDay}）· 預支 ${r.welfareAdvance}（${r.advancePayDay}）</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:11px;font-weight:700;color:${r.status==='已簽名'?'#2a7a5a':'#b07d2a'}">${r.status}</span>
-          ${r.status==='已簽名'?`<button onclick="resetPayrollSignature(${r.rowIdx})" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer">重置簽名</button>`:''}
+          ${r.status==='已簽名'?`<button onclick="resetPayrollSignature(${r.rowIdx})" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer">重置簽名</button>`:`<button onclick="retractPayroll(${r.rowIdx})" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer">收回</button>`}
         </div>
       </div>`).join('');
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
@@ -2697,30 +2721,47 @@ async function resetPayrollSignature(rowIdx){
   }catch(e){ showToast('⚠ '+e.message); }
 }
 
+async function retractPayroll(rowIdx){
+  if(!confirm('確定要收回這筆薪資單嗎？員工將不再看到這筆資料，收回後需要重新發布才會再出現。'))return;
+  try{
+    await api('retract_payroll',{rowIdx});
+    showToast('✓ 已收回這筆薪資單');
+    loadPayrollOverview();
+    loadPayrollMonthsHistory();
+  }catch(e){ showToast('⚠ '+e.message); }
+}
+
 // ── 財務頁籤：只看應發金額＋簽核狀態 ────────────────────────────
+// get_payroll_months 本來就回傳所有曾經發布過的月份（不限12個月），這裡只是預設只顯示
+// 當月狀態，其他月份透過查詢輸入框從同一份資料裡找，不用額外呼叫後端
+let financeMonthsCache=null;
+function financeMonthRowHtml(month, m){
+  const published=m&&m.total>0;
+  const statusText=published?`已發布 ${m.total} 份，已簽 ${m.signed} 份`:'尚未發布';
+  return `<div class="settings-row" style="cursor:pointer" onclick="document.getElementById('finance-month').value='${month.replace('/','-')}';loadFinanceOverview()">
+    <div style="font-size:13px;font-weight:700">${month}</div>
+    <div style="font-size:11px;color:${published?(m.signed===m.total?'#2a7a5a':'#b07d2a'):'var(--text-soft)'}">${statusText}</div>
+  </div>`;
+}
 async function loadFinanceMonthsHistory(){
-  const el=document.getElementById('finance-months-list');
+  const el=document.getElementById('finance-current-month-status');
   el.innerHTML='<div class="empty-state">載入中…</div>';
   try{
     const result=await api('get_payroll_months');
-    const byMonth={};
-    (result.months||[]).forEach(m=>byMonth[m.month]=m);
-    const now=new Date();
-    const list=[];
-    for(let i=0;i<12;i++){
-      const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
-      const month=`${d.getFullYear()}/${f2(d.getMonth()+1)}`;
-      list.push(byMonth[month]||{month, total:0, signed:0});
-    }
-    el.innerHTML=list.map(m=>{
-      const published=m.total>0;
-      const statusText=published?`已發布 ${m.total} 份，已簽 ${m.signed} 份`:'尚未發布';
-      return `<div class="settings-row" style="cursor:pointer" onclick="document.getElementById('finance-month').value='${m.month.replace('/','-')}';loadFinanceOverview()">
-        <div style="font-size:13px;font-weight:700">${m.month}</div>
-        <div style="font-size:11px;color:${published?(m.signed===m.total?'#2a7a5a':'#b07d2a'):'var(--text-soft)'}">${statusText}</div>
-      </div>`;
-    }).join('');
+    financeMonthsCache={};
+    (result.months||[]).forEach(m=>financeMonthsCache[m.month]=m);
+    const thisMonth=todayKey().slice(0,7);
+    el.innerHTML=financeMonthRowHtml(thisMonth, financeMonthsCache[thisMonth]||{month:thisMonth,total:0,signed:0});
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+async function queryFinanceMonth(){
+  const monthVal=document.getElementById('finance-query-month').value;
+  const el=document.getElementById('finance-query-result');
+  if(!monthVal)return;
+  if(!financeMonthsCache) await loadFinanceMonthsHistory();
+  const month=monthVal.replace('-','/');
+  el.style.display='block';
+  el.innerHTML=financeMonthRowHtml(month, financeMonthsCache[month]||{month,total:0,signed:0});
 }
 
 async function loadFinanceOverview(){
@@ -2738,6 +2779,7 @@ async function loadFinanceOverview(){
           <span class="leave-req-name">${r.name} <span style="font-size:11px;color:var(--text-soft);font-weight:400">${r.eid}</span></span>
           <span style="font-size:11px;font-weight:700;color:${r.status==='已簽名'?'#2a7a5a':'#b07d2a'}">${r.status==='已簽名'?'✓ 可發放':'⏳ 未簽核'}</span>
         </div>
+        <div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">${r.dept||''} ${r.title||''}</div>
         <div class="leave-req-detail">
           實領工資：<strong>${r.netPay}</strong>　發放日：${r.payDay}<br>
           預支薪資：<strong>${r.welfareAdvance}</strong>　發放日：${r.advancePayDay}
@@ -2751,6 +2793,35 @@ function onOtTypeChange(){
   const type=document.getElementById('ot-type').value;
   document.getElementById('ot-early-row').style.display=type==='提早上班'?'block':'none';
   document.getElementById('ot-late-row').style.display=type==='加班'?'block':'none';
+  if(type==='加班') renderOtLateOptions();
+}
+
+// 加班起算門檻：依申請日當天實際上班打卡時間往後推（上班+8工時+1午休+0.5休息才開始算加班）；
+// 只有申請日=今天且已經打過上班卡才能算得出實際時間，其餘情況以彈性最早 09:00 為基準（等同固定 18:30）
+function otOvertimeStartMinutes(){
+  const dateVal=document.getElementById('ot-date').value;
+  const todayDash=todayKey().replace(/\//g,'-');
+  if(dateVal===todayDash){
+    const hasIn=(todayPunchCache||[]).find(r=>r.date===todayKey()&&r.type==='上班');
+    if(hasIn){
+      const[ih,im]=hasIn.time.split(':').map(Number);
+      return ih*60+im+9*60+30;
+    }
+  }
+  return 18*60+30;
+}
+function renderOtLateOptions(){
+  const startMin=otOvertimeStartMinutes();
+  const sel=document.getElementById('ot-end-time');
+  const opts=[];
+  for(let i=1;i<=8;i++){
+    const m=startMin+i*30;
+    const h=String(Math.floor(m/60)).padStart(2,'0'), mm=String(m%60).padStart(2,'0');
+    opts.push(`<option value="${h}:${mm}">${h}:${mm}（加班 ${i*0.5} 小時）</option>`);
+  }
+  sel.innerHTML=opts.join('');
+  const sh=String(Math.floor(startMin/60)).padStart(2,'0'), sm=String(startMin%60).padStart(2,'0');
+  document.getElementById('ot-late-hint').textContent=`※ 加班時數自 ${sh}:${sm} 起算（依實際上班時間往後推8工時+1午休+0.5休息）。依勞基法：前2小時薪資×4/3，第3小時起×5/3。公司以補休為主，如需加班費請於備註說明。`;
 }
 
 async function loadOvertime(){
