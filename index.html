@@ -644,7 +644,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div><div class="form-label-sm">員工</div><select id="lg-eid" class="form-select"></select></div>
       <div>
         <div class="form-label-sm">假別</div>
-        <select id="lg-type" class="form-select" onchange="document.getElementById('lg-custom-row').style.display=this.value==='其他'?'block':'none'">
+        <select id="lg-type" class="form-select" onchange="onLeaveGrantTypeChange()">
           <option value="婚假">婚假</option>
           <option value="喪假">喪假</option>
           <option value="產假">產假</option>
@@ -654,10 +654,15 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
           <option value="公假">公假</option>
           <option value="其他">其他</option>
         </select>
+        <div id="lg-type-ref" style="font-size:11px;color:var(--text-soft);margin-top:6px;line-height:1.5"></div>
       </div>
       <div id="lg-custom-row" style="display:none">
         <div class="form-label-sm">假別名稱</div>
         <input type="text" id="lg-custom-label" class="form-input" placeholder="請填寫實際假別名稱">
+      </div>
+      <div class="form-row-2">
+        <div><div class="form-label-sm">總時數（小時）</div><input type="number" id="lg-total-hours" class="form-input" placeholder="如 64" min="0" step="0.5"></div>
+        <div><div class="form-label-sm">使用期限</div><input type="date" id="lg-valid-until" class="form-input"></div>
       </div>
       <button class="btn-primary" onclick="grantLeaveType()">解鎖假別</button>
       <div class="form-msg" id="lg-msg"></div>
@@ -740,6 +745,11 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="payroll-publish-msg"></div>
     </div></div>
     <div class="card" id="payroll-months-card" style="display:none"><div id="payroll-months-list"><div class="empty-state">載入中…</div></div></div>
+    <div class="card" id="payroll-query-card" style="display:none"><div class="card-inner" style="display:flex;gap:8px;align-items:flex-end">
+      <div style="flex:1"><div class="form-label-sm">查詢更早的月份</div><input type="month" id="payroll-query-month" class="form-input"></div>
+      <button class="btn-secondary" style="width:auto;padding:12px 18px;white-space:nowrap" onclick="queryAdminPayrollMonth()">查詢</button>
+    </div></div>
+    <div class="card" id="payroll-query-result" style="display:none"></div>
     <div style="font-size:11px;color:var(--text-soft);padding:0 2px 4px" id="payroll-overview-hint">👇 點擊上方任一月份可查看該月每位員工的明細；若要修改已發布的薪資單，未簽名的直接重新按「發布本月薪資單」即可覆蓋，已簽名的要先按下方「重置簽名」才能重新發布覆蓋</div>
     <div class="section-label" id="payroll-overview-label" style="display:none">薪資單明細與簽核狀態</div>
     <div class="card" id="payroll-overview-card" style="display:none"><div id="payroll-overview-list"><div class="empty-state">請先選擇報表月份</div></div></div>
@@ -1357,7 +1367,14 @@ const LEAVE_RULES={
   '病假':['最小單位：1小時','需上傳當日看診證明','午休 12:00–13:00 不計入請假時數','說明欄位必填'],
   '事假':['最小單位：1小時','1天假需提前 3 個工作天申請','2天以上需提前 7 個工作天申請','午休 12:00–13:00 不計入請假時數','說明欄位必填'],
   '生理假':['最小單位：1小時','每月 1 天，全年前 3 天不併入病假','當日申請可','午休 12:00–13:00 不計入請假時數'],
-  '補休':['最小單位：1小時','時數不可超過目前累計補休餘額','午休 12:00–13:00 不計入請假時數'],
+  '婚假':['說明欄位必填','法定給假8日（64小時），工資照給','實際核給時數／期限以管理員解鎖設定為準'],
+  '喪假':['說明欄位必填','依親等法定3～8日不等，工資照給','實際核給時數／期限以管理員解鎖設定為準'],
+  '產假':['說明欄位必填','法定分娩前後給假8週（56日）','實際核給時數／期限以管理員解鎖設定為準'],
+  '陪產假':['說明欄位必填','法定陪產檢及陪產假共7日，薪資照給','實際核給時數／期限以管理員解鎖設定為準'],
+  '育嬰假':['說明欄位必填','性質為留職停薪，與一般請假不同，期間不支薪','實際核給時數／期限以管理員解鎖設定為準'],
+  '家庭照顧假':['說明欄位必填','併入事假計算，每年最多5日，不支薪','實際核給時數／期限以管理員解鎖設定為準'],
+  '公假':['說明欄位必填','依個別事由核給，天數依相關法規規定','實際核給時數／期限以管理員解鎖設定為準'],
+  '補休':['最小單位：1小時','時數不可超過目前累計補休餘額','1天假需提前 3 個工作天申請，2天以上需提前 7 個工作天申請（比照事假）','午休 12:00–13:00 不計入請假時數'],
 };
 
 let proofFileData=null;
@@ -1371,7 +1388,7 @@ function onLeaveTypeChange(){
   document.getElementById('proof-row').style.display=type==='病假'?'block':'none';
   document.getElementById('halfday-row').style.display=type==='特休'?'block':'none';
   document.getElementById('time-range-row').style.display=type!=='特休'?'block':'none';
-  document.getElementById('note-req').style.display=(type==='病假'||type==='事假')?'inline':'none';
+  document.getElementById('note-req').style.display=type!=='特休'?'inline':'none';
   proofFileData=null;
   document.getElementById('proof-name').textContent='';
   document.getElementById('proof-preview').style.display='none';
@@ -1464,7 +1481,7 @@ async function loadMyLeaveGrants(){
     const result=await api('get_my_leave_grants');
     (result.grants||[]).forEach(g=>{
       const opt=document.createElement('option');
-      opt.value=g.type; opt.textContent=g.type+'（已解鎖）'; opt.dataset.granted='1';
+      opt.value=g.type; opt.textContent=g.type; opt.dataset.granted='1';
       sel.appendChild(opt);
     });
   }catch(e){}
@@ -1570,7 +1587,7 @@ async function submitLeave(){
   const msg=document.getElementById('leave-msg');
   if(!start||!end){msg.textContent='請填寫請假日期';msg.className='form-msg err';return;}
   if(start>end){msg.textContent='結束日期不能早於開始日期';msg.className='form-msg err';return;}
-  if((type==='病假'||type==='事假')&&!note.trim()){msg.textContent='⚠ 此假別說明為必填';msg.className='form-msg err';return;}
+  if(type!=='特休'&&!note.trim()){msg.textContent='⚠ 此假別說明為必填';msg.className='form-msg err';return;}
   if(type==='病假'&&!proofFileData){msg.textContent='⚠ 病假需上傳看診證明';msg.className='form-msg err';return;}
   msg.textContent='送出中…'; msg.className='form-msg';
   let unit='', proofUrl='';
@@ -1721,6 +1738,7 @@ function loadAdmin(){
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-card').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-months-card').style.display=session.role>=2?'block':'none';
+  document.getElementById('payroll-query-card').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-hint').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-card').style.display=session.role>=2?'block':'none';
@@ -1751,7 +1769,7 @@ function switchAdminSub(sub, btn){
   ['review','manage','leavegrant','settings','reports'].forEach(s=>{
     document.getElementById('admin-sub-'+s).style.display = s===sub ? 'block' : 'none';
   });
-  if(sub==='leavegrant') loadLeaveGrantList();
+  if(sub==='leavegrant'){ loadLeaveGrantList(); onLeaveGrantTypeChange(); }
 }
 
 // 今日出勤（從後端撈所有人今日打卡）
@@ -2449,17 +2467,39 @@ async function submitEmpAddLeave(){
 }
 
 // ── 特殊假別授權：只解鎖假別，員工自己填日期送出申請 ──────────────
+// 法規天數僅供參考，實際核給的總時數／使用期限由管理員自行決定填寫，系統不自動套用法定天數
+const LEAVE_GRANT_REFS={
+  '婚假':'📖 勞工請假規則第2條：給假8日（64小時），工資照給。',
+  '喪假':'📖 勞工請假規則第3條：依親等給假，父母/配偶等8日、祖父母/子女等6日、旁系親屬3日，工資照給。',
+  '產假':'📖 勞基法第50條：分娩前後給假8週（56日）；受僱滿6個月工資照給，未滿6個月減半發給。',
+  '陪產假':'📖 性別工作平等法第15條：陪產檢及陪產假共7日，薪資照給。',
+  '育嬰假':'⚠️ 育嬰留職停薪性質與一般請假不同：期間不支薪、最長至子女滿3歲，通常需要另外辦理留職停薪手續，這裡的時數/期限僅作暫時性記錄用，請自行評估是否適合用這個功能處理。',
+  '家庭照顧假':'📖 性別工作平等法第20條：併入事假計算，每年最多5日，不支薪。',
+  '公假':'📖 依個別事由（如投票、法院傳喚、教育召集等）核給，天數依相關法規規定，無統一標準。',
+  '其他':'請自行填寫假別名稱與核給的時數、期限。',
+};
+function onLeaveGrantTypeChange(){
+  const type=document.getElementById('lg-type').value;
+  document.getElementById('lg-custom-row').style.display=type==='其他'?'block':'none';
+  document.getElementById('lg-type-ref').textContent=LEAVE_GRANT_REFS[type]||'';
+}
 async function grantLeaveType(){
   const eid=document.getElementById('lg-eid').value;
   const msg=document.getElementById('lg-msg');
   if(!eid){msg.textContent='請先選擇員工';msg.className='form-msg err';return;}
   const type=document.getElementById('lg-type').value;
   const customLabel=document.getElementById('lg-custom-label').value.trim();
+  const totalHours=document.getElementById('lg-total-hours').value;
+  const validUntil=document.getElementById('lg-valid-until').value;
   if(type==='其他'&&!customLabel){msg.textContent='請填寫假別名稱';msg.className='form-msg err';return;}
+  if(!totalHours||parseFloat(totalHours)<=0){msg.textContent='請填寫總時數';msg.className='form-msg err';return;}
+  if(!validUntil){msg.textContent='請填寫使用期限';msg.className='form-msg err';return;}
   try{
-    const result=await api('grant_leave_type',{eid,type,customLabel});
+    const result=await api('grant_leave_type',{eid,type,customLabel,totalHours,validUntil});
     msg.textContent='✓ '+result.message;msg.className='form-msg ok';
     document.getElementById('lg-custom-label').value='';
+    document.getElementById('lg-total-hours').value='';
+    document.getElementById('lg-valid-until').value='';
     loadLeaveGrantList();
   }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
 }
@@ -2471,13 +2511,15 @@ async function loadLeaveGrantList(){
     const result=await api('get_leave_grants');
     const grants=result.grants||[];
     if(!grants.length){el.innerHTML='<div class="empty-state">尚無解鎖紀錄</div>';return;}
+    const sc={'可用':'#2a7a5a','已用完':'var(--text-soft)','已過期':'#bd898e'};
     el.innerHTML=grants.map(g=>`
       <div class="settings-row">
         <div>
           <div style="font-size:13px;font-weight:700">${g.name} <span style="font-size:11px;color:var(--text-soft)">${g.eid}</span></div>
           <div style="font-size:11px;color:var(--text-soft)">${g.dept||''} ${g.title||''} · ${g.type}</div>
+          <div style="font-size:11px;color:var(--text-soft)">已用 ${g.usedHours}／共 ${g.totalHours} 小時 · 期限 ${g.validUntil}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;color:${g.status==='已使用'?'#2a7a5a':'#b07d2a'}">${g.status}</span>
+        <span style="font-size:11px;font-weight:700;color:${sc[g.status]||'#854F0B'}">${g.status}</span>
       </div>`).join('');
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
@@ -2734,34 +2776,39 @@ async function retractMonthPayroll(){
 }
 
 // 薪資單發布歷史：列出最近3個月，標示哪些已發布/未發布，點擊直接切換查看
+// get_payroll_months 本身回傳所有曾發布過的月份（不限3個月），這裡只是預設只列近3個月，
+// 更早的月份用下面的查詢輸入框從同一份資料裡找，不用再呼叫一次後端
+let adminPayrollMonthsCache=null;
 async function loadPayrollMonthsHistory(){
   const el=document.getElementById('payroll-months-list');
   el.innerHTML='<div class="empty-state">載入中…</div>';
   try{
     const result=await api('get_payroll_months');
-    const byMonth={};
-    (result.months||[]).forEach(m=>byMonth[m.month]=m);
+    adminPayrollMonthsCache={};
+    (result.months||[]).forEach(m=>adminPayrollMonthsCache[m.month]=m);
     const now=new Date();
     const list=[];
     for(let i=0;i<3;i++){
       const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
       const month=`${d.getFullYear()}/${f2(d.getMonth()+1)}`;
-      list.push(byMonth[month]||{month, total:0, signed:0});
+      list.push(adminPayrollMonthsCache[month]||{month, total:0, signed:0});
     }
-    el.innerHTML=list.map(m=>{
-      const published=m.total>0;
-      const statusText=published?`已發布 ${m.total} 份，已簽 ${m.signed} 份`:'尚未發布';
-      return `<div class="settings-row" style="cursor:pointer" onclick="selectPayrollMonth('${m.month}')">
-        <div style="font-size:13px;font-weight:700">${m.month}</div>
-        <div style="font-size:11px;color:${published?(m.signed===m.total?'#2a7a5a':'#b07d2a'):'var(--text-soft)'}">${statusText}</div>
-      </div>`;
-    }).join('');
+    el.innerHTML=list.map(m=>payrollMonthRowHtml(m.month, m, `selectPayrollMonth('${m.month}')`)).join('');
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
 function selectPayrollMonth(month){
   document.getElementById('report-month').value=month.replace('/','-');
   loadPayrollOverview();
   document.getElementById('payroll-overview-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function queryAdminPayrollMonth(){
+  const monthVal=document.getElementById('payroll-query-month').value;
+  const el=document.getElementById('payroll-query-result');
+  if(!monthVal)return;
+  if(!adminPayrollMonthsCache) await loadPayrollMonthsHistory();
+  const month=monthVal.replace('-','/');
+  el.style.display='block';
+  el.innerHTML=payrollMonthRowHtml(month, adminPayrollMonthsCache[month]||{month,total:0,signed:0}, `selectPayrollMonth('${month}')`);
 }
 
 async function loadPayrollOverview(){
@@ -2813,13 +2860,16 @@ async function retractPayroll(rowIdx){
 // get_payroll_months 本來就回傳所有曾經發布過的月份（不限12個月），這裡只是預設只顯示
 // 當月狀態，其他月份透過查詢輸入框從同一份資料裡找，不用額外呼叫後端
 let financeMonthsCache=null;
-function financeMonthRowHtml(month, m){
+function payrollMonthRowHtml(month, m, onclickJs){
   const published=m&&m.total>0;
   const statusText=published?`已發布 ${m.total} 份，已簽 ${m.signed} 份`:'尚未發布';
-  return `<div class="settings-row" style="cursor:pointer" onclick="document.getElementById('finance-month').value='${month.replace('/','-')}';loadFinanceOverview()">
+  return `<div class="settings-row" style="cursor:pointer" onclick="${onclickJs}">
     <div style="font-size:13px;font-weight:700">${month}</div>
     <div style="font-size:11px;color:${published?(m.signed===m.total?'#2a7a5a':'#b07d2a'):'var(--text-soft)'}">${statusText}</div>
   </div>`;
+}
+function financeMonthRowHtml(month, m){
+  return payrollMonthRowHtml(month, m, `document.getElementById('finance-month').value='${month.replace('/','-')}';loadFinanceOverview()`);
 }
 async function loadFinanceMonthsHistory(){
   const el=document.getElementById('finance-current-month-status');
