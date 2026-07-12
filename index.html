@@ -442,7 +442,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <option value="08:15">08:15</option>
         <option value="08:30">08:30</option>
       </select>
-      <div style="font-size:11px;color:var(--text-soft);margin-top:5px">※ 核准後，系統將依上班時間自動計算最早可下班時間（上班時間 + 8小時）</div>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:5px">※ 核准後，當天原則工時為上班時間 + 9小時（含1小時午休），如需提前下班仍可直接打卡（會標記早退，不會被擋下）</div>
     </div>
     <div id="ot-late-row" style="display:none">
       <div class="form-label-sm">預計加班至</div>
@@ -511,6 +511,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div class="mode-tabs">
     <button class="mode-tab active" onclick="switchAdminSub('review',this)">🗂 審核</button>
     <button class="mode-tab" onclick="switchAdminSub('manage',this)">👥 員工</button>
+    <button class="mode-tab" id="tab-leavegrant" onclick="switchAdminSub('leavegrant',this)" style="display:none">🎁 假別授權</button>
     <button class="mode-tab" onclick="switchAdminSub('settings',this)">⚙️ 設定</button>
     <button class="mode-tab" onclick="switchAdminSub('reports',this)">📊 報表</button>
   </div>
@@ -603,8 +604,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <div><div class="form-label-sm">月份</div><input type="month" id="emp-query-month" class="form-input" onchange="loadEmpHistory()"></div>
       </div>
       <button class="btn-secondary" id="btn-emp-add-punch" onclick="toggleEmpAddPunch()" style="display:none">＋ 新增打卡</button>
-      <button class="btn-secondary" id="btn-emp-add-leave" onclick="toggleEmpAddLeave()" style="display:none">＋ 新增請假紀錄／給特殊假別（婚假、育嬰假等）</button>
-      <div id="emp-add-leave-hint" style="display:none;font-size:11px;color:var(--text-soft)">💡 婚假、產假、陪產假、育嬰假、家庭照顧假、喪假、公假等較少使用的假別，選好上方員工後點這裡直接給假即可，無需員工自行申請。</div>
+      <button class="btn-secondary" id="btn-emp-add-leave" onclick="toggleEmpAddLeave()" style="display:none">＋ 新增請假紀錄（補登一般假別）</button>
     </div></div>
     <div class="card" id="emp-add-punch-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
       <div class="form-row-2">
@@ -617,22 +617,10 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     </div></div>
     <div class="card" id="emp-add-leave-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
       <select id="eal-type" class="form-select">
-        <optgroup label="一般假別">
-          <option value="特休">特休</option>
-          <option value="病假">病假</option>
-          <option value="事假">事假</option>
-          <option value="生理假">生理假</option>
-        </optgroup>
-        <optgroup label="特殊假別（較少使用，由管理員給假）">
-          <option value="婚假">婚假</option>
-          <option value="喪假">喪假</option>
-          <option value="產假">產假</option>
-          <option value="陪產假">陪產假</option>
-          <option value="育嬰假">育嬰假</option>
-          <option value="家庭照顧假">家庭照顧假</option>
-          <option value="公假">公假</option>
-          <option value="其他">其他</option>
-        </optgroup>
+        <option value="特休">特休</option>
+        <option value="病假">病假</option>
+        <option value="事假">事假</option>
+        <option value="生理假">生理假</option>
       </select>
       <div class="form-row-2">
         <div><div class="form-label-sm">開始日期</div><input type="date" id="eal-start" class="form-input"></div>
@@ -644,6 +632,38 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="eal-msg"></div>
     </div></div>
     <div id="emp-history-list"><div class="card"><div class="empty-state">請選擇員工與月份</div></div></div>
+  </div>
+
+  <!-- ══ 特殊假別授權 ══ -->
+  <div id="admin-sub-leavegrant" style="display:none">
+    <div class="section-label">給員工解鎖特殊假別</div>
+    <div class="card"><div class="card-inner" style="font-size:11px;color:var(--text-soft);line-height:1.6">
+      婚假、產假、陪產假、育嬰假、家庭照顧假、喪假、公假等較少使用的假別，平時不出現在員工的請假下拉選單。這裡只是「解鎖」讓員工看到這個假別選項，員工仍要自己到請假頁填日期、送出申請，並且一樣要走主管/管理員審核流程。
+    </div></div>
+    <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+      <div><div class="form-label-sm">員工</div><select id="lg-eid" class="form-select"></select></div>
+      <div>
+        <div class="form-label-sm">假別</div>
+        <select id="lg-type" class="form-select" onchange="document.getElementById('lg-custom-row').style.display=this.value==='其他'?'block':'none'">
+          <option value="婚假">婚假</option>
+          <option value="喪假">喪假</option>
+          <option value="產假">產假</option>
+          <option value="陪產假">陪產假</option>
+          <option value="育嬰假">育嬰假</option>
+          <option value="家庭照顧假">家庭照顧假</option>
+          <option value="公假">公假</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      <div id="lg-custom-row" style="display:none">
+        <div class="form-label-sm">假別名稱</div>
+        <input type="text" id="lg-custom-label" class="form-input" placeholder="請填寫實際假別名稱">
+      </div>
+      <button class="btn-primary" onclick="grantLeaveType()">解鎖假別</button>
+      <div class="form-msg" id="lg-msg"></div>
+    </div></div>
+    <div class="section-label">解鎖紀錄</div>
+    <div class="card"><div id="leave-grant-list"><div class="empty-state">載入中…</div></div></div>
   </div>
 
   <!-- ══ 系統設定 ══ -->
@@ -1431,6 +1451,20 @@ function compressImage(file,maxDim,quality,targetBytes){
   });
 }
 
+// 把管理員解鎖但員工還沒用掉的特殊假別動態加進請假下拉選單
+async function loadMyLeaveGrants(){
+  const sel=document.getElementById('leave-type');
+  Array.from(sel.querySelectorAll('option[data-granted]')).forEach(o=>o.remove());
+  try{
+    const result=await api('get_my_leave_grants');
+    (result.grants||[]).forEach(g=>{
+      const opt=document.createElement('option');
+      opt.value=g.type; opt.textContent=g.type+'（已解鎖）'; opt.dataset.granted='1';
+      sel.appendChild(opt);
+    });
+  }catch(e){}
+}
+
 async function loadLeave(){
   // 假別餘額
   const badgesEl=document.getElementById('leave-badges');
@@ -1465,6 +1499,7 @@ async function loadLeave(){
   const t=new Date().toISOString().split('T')[0];
   document.getElementById('leave-start').value=t;
   document.getElementById('leave-end').value=t;
+  loadMyLeaveGrants();
   onLeaveTypeChange();
   // 我的請假紀錄
   const ll=document.getElementById('my-leave-list');
@@ -1675,7 +1710,7 @@ function loadAdmin(){
   document.getElementById('settings-non-admin-note').style.display=session.role>=2?'none':'block';
   document.getElementById('btn-emp-add-punch').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-emp-add-leave').style.display=session.role>=2?'block':'none';
-  document.getElementById('emp-add-leave-hint').style.display=session.role>=2?'block':'none';
+  document.getElementById('tab-leavegrant').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-roster').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-payroll').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
@@ -1708,9 +1743,10 @@ function loadAdmin(){
 function switchAdminSub(sub, btn){
   document.querySelectorAll('#screen-admin .mode-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['review','manage','settings','reports'].forEach(s=>{
+  ['review','manage','leavegrant','settings','reports'].forEach(s=>{
     document.getElementById('admin-sub-'+s).style.display = s===sub ? 'block' : 'none';
   });
+  if(sub==='leavegrant') loadLeaveGrantList();
 }
 
 // 今日出勤（從後端撈所有人今日打卡）
@@ -2042,8 +2078,11 @@ async function populateEmpQuerySelect(){
   if(sel.dataset.loaded)return;
   try{
     const result=await api('get_employees');
-    sel.innerHTML='<option value="">請選擇員工</option>'+(result.employees||[]).map(e=>`<option value="${e.eid}">${e.name}（${e.eid}）· ${e.dept||''} ${e.title||''}</option>`).join('');
+    const opts='<option value="">請選擇員工</option>'+(result.employees||[]).map(e=>`<option value="${e.eid}">${e.name}（${e.eid}）· ${e.dept||''} ${e.title||''}</option>`).join('');
+    sel.innerHTML=opts;
     sel.dataset.loaded='1';
+    const lgSel=document.getElementById('lg-eid');
+    if(lgSel) lgSel.innerHTML=opts;
   }catch(e){}
 }
 
@@ -2402,6 +2441,40 @@ async function submitEmpAddLeave(){
     msg.textContent='✓ 已新增';msg.className='form-msg ok';
     loadEmpHistory();
   }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
+}
+
+// ── 特殊假別授權：只解鎖假別，員工自己填日期送出申請 ──────────────
+async function grantLeaveType(){
+  const eid=document.getElementById('lg-eid').value;
+  const msg=document.getElementById('lg-msg');
+  if(!eid){msg.textContent='請先選擇員工';msg.className='form-msg err';return;}
+  const type=document.getElementById('lg-type').value;
+  const customLabel=document.getElementById('lg-custom-label').value.trim();
+  if(type==='其他'&&!customLabel){msg.textContent='請填寫假別名稱';msg.className='form-msg err';return;}
+  try{
+    const result=await api('grant_leave_type',{eid,type,customLabel});
+    msg.textContent='✓ '+result.message;msg.className='form-msg ok';
+    document.getElementById('lg-custom-label').value='';
+    loadLeaveGrantList();
+  }catch(e){msg.textContent='⚠ '+e.message;msg.className='form-msg err';}
+}
+
+async function loadLeaveGrantList(){
+  const el=document.getElementById('leave-grant-list');
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const result=await api('get_leave_grants');
+    const grants=result.grants||[];
+    if(!grants.length){el.innerHTML='<div class="empty-state">尚無解鎖紀錄</div>';return;}
+    el.innerHTML=grants.map(g=>`
+      <div class="settings-row">
+        <div>
+          <div style="font-size:13px;font-weight:700">${g.name} <span style="font-size:11px;color:var(--text-soft)">${g.eid}</span></div>
+          <div style="font-size:11px;color:var(--text-soft)">${g.dept||''} ${g.title||''} · ${g.type}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${g.status==='已使用'?'#2a7a5a':'#b07d2a'}">${g.status}</span>
+      </div>`).join('');
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
 
 async function saveEmpEditPunch(rowIdx){
