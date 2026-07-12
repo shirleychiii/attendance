@@ -745,12 +745,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="payroll-publish-msg"></div>
     </div></div>
     <div class="card" id="payroll-months-card" style="display:none"><div id="payroll-months-list"><div class="empty-state">載入中…</div></div></div>
-    <div class="card" id="payroll-query-card" style="display:none"><div class="card-inner" style="display:flex;gap:8px;align-items:flex-end">
-      <div style="flex:1"><div class="form-label-sm">查詢更早的月份</div><input type="month" id="payroll-query-month" class="form-input"></div>
-      <button class="btn-secondary" style="width:auto;padding:12px 18px;white-space:nowrap" onclick="queryAdminPayrollMonth()">查詢</button>
-    </div></div>
-    <div class="card" id="payroll-query-result" style="display:none"></div>
-    <div style="font-size:11px;color:var(--text-soft);padding:0 2px 4px" id="payroll-overview-hint">👇 點擊上方任一月份可查看該月每位員工的明細；若要修改已發布的薪資單，未簽名的直接重新按「發布本月薪資單」即可覆蓋，已簽名的要先按下方「重置簽名」才能重新發布覆蓋</div>
+    <div style="font-size:11px;color:var(--text-soft);padding:0 2px 4px" id="payroll-overview-hint">👇 點擊上方任一月份可查看該月每位員工的明細；更早的月份可以直接改上面的「報表月份」；若要修改已發布的薪資單，未簽名的直接重新按「發布本月薪資單」即可覆蓋，已簽名的要先按下方「重置簽名」才能重新發布覆蓋</div>
     <div class="section-label" id="payroll-overview-label" style="display:none">薪資單明細與簽核狀態</div>
     <div class="card" id="payroll-overview-card" style="display:none"><div id="payroll-overview-list"><div class="empty-state">請先選擇報表月份</div></div></div>
   </div>
@@ -766,15 +761,9 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   </div>
   <div class="section-label">本月發布狀態</div>
   <div class="card" id="finance-current-month-status"><div class="empty-state">載入中…</div></div>
-  <div class="section-label">查詢其他月份</div>
-  <div class="card"><div class="card-inner" style="display:flex;gap:8px;align-items:flex-end">
-    <div style="flex:1"><div class="form-label-sm">月份</div><input type="month" id="finance-query-month" class="form-input"></div>
-    <button class="btn-secondary" style="width:auto;padding:12px 18px;white-space:nowrap" onclick="queryFinanceMonth()">查詢</button>
-  </div></div>
-  <div class="card" id="finance-query-result" style="display:none"></div>
   <div class="section-label">薪資發放總覽</div>
   <div class="card"><div class="card-inner">
-    <div class="form-label-sm">月份</div><input type="month" id="finance-month" class="form-input" onchange="loadFinanceOverview()">
+    <div class="form-label-sm">月份（可查詢任何月份）</div><input type="month" id="finance-month" class="form-input" onchange="loadFinanceOverview()">
   </div></div>
   <div id="finance-overview-list"><div class="card"><div class="empty-state">請選擇月份</div></div></div>
   <div class="nav-spacer"></div>
@@ -1477,12 +1466,19 @@ function compressImage(file,maxDim,quality,targetBytes){
 async function loadMyLeaveGrants(){
   const sel=document.getElementById('leave-type');
   Array.from(sel.querySelectorAll('option[data-granted]')).forEach(o=>o.remove());
+  const badgesEl=document.getElementById('leave-badges');
+  Array.from(badgesEl.querySelectorAll('.leave-badge-item[data-granted]')).forEach(o=>o.remove());
   try{
     const result=await api('get_my_leave_grants');
     (result.grants||[]).forEach(g=>{
       const opt=document.createElement('option');
       opt.value=g.type; opt.textContent=g.type; opt.dataset.granted='1';
       sel.appendChild(opt);
+      badgesEl.insertAdjacentHTML('beforeend', `
+        <div class="leave-badge-item" data-granted="1" style="background:#e9e6f5">
+          <div class="lb-left"><div class="lb-name" style="color:#4a3f7a">${g.type}</div><div class="lb-rule" style="color:#4a3f7a">管理員解鎖，期限至 ${g.validUntil}</div></div>
+          <div class="lb-right" style="color:#4a3f7a">剩餘 <strong>${g.remainingHours}</strong> 小時</div>
+        </div>`);
     });
   }catch(e){}
 }
@@ -1738,7 +1734,6 @@ function loadAdmin(){
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-card').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-months-card').style.display=session.role>=2?'block':'none';
-  document.getElementById('payroll-query-card').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-hint').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-card').style.display=session.role>=2?'block':'none';
@@ -2801,15 +2796,6 @@ function selectPayrollMonth(month){
   loadPayrollOverview();
   document.getElementById('payroll-overview-card').scrollIntoView({behavior:'smooth',block:'start'});
 }
-async function queryAdminPayrollMonth(){
-  const monthVal=document.getElementById('payroll-query-month').value;
-  const el=document.getElementById('payroll-query-result');
-  if(!monthVal)return;
-  if(!adminPayrollMonthsCache) await loadPayrollMonthsHistory();
-  const month=monthVal.replace('-','/');
-  el.style.display='block';
-  el.innerHTML=payrollMonthRowHtml(month, adminPayrollMonthsCache[month]||{month,total:0,signed:0}, `selectPayrollMonth('${month}')`);
-}
 
 async function loadPayrollOverview(){
   const monthVal=document.getElementById('report-month').value;
@@ -2882,16 +2868,6 @@ async function loadFinanceMonthsHistory(){
     el.innerHTML=financeMonthRowHtml(thisMonth, financeMonthsCache[thisMonth]||{month:thisMonth,total:0,signed:0});
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
-async function queryFinanceMonth(){
-  const monthVal=document.getElementById('finance-query-month').value;
-  const el=document.getElementById('finance-query-result');
-  if(!monthVal)return;
-  if(!financeMonthsCache) await loadFinanceMonthsHistory();
-  const month=monthVal.replace('-','/');
-  el.style.display='block';
-  el.innerHTML=financeMonthRowHtml(month, financeMonthsCache[month]||{month,total:0,signed:0});
-}
-
 async function loadFinanceOverview(){
   const monthInput=document.getElementById('finance-month');
   if(!monthInput.value) monthInput.value=todayKey().slice(0,7).replace('/','-');
