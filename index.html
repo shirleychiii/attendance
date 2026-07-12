@@ -222,6 +222,9 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div class="first-login-banner" id="first-login-banner">
     ⚠️ 您使用的是預設密碼，請前往「個人」頁籤立即修改密碼，避免他人代打卡。
   </div>
+  <div class="first-login-banner" id="payroll-reminder-banner" style="display:none;background:var(--blue-lo);color:var(--deep-blue);cursor:pointer" onclick="goToMyPayroll()">
+    📄 <span id="payroll-reminder-text"></span>（點擊前往確認）
+  </div>
   <div class="profile-bar">
     <div class="avatar"><span id="av-txt"></span><div class="role-dot" id="av-dot"></div></div>
     <div class="profile-info">
@@ -483,6 +486,9 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div style="font-size:16px;font-weight:800" id="profile-big-name"></div>
     <div style="font-size:12px;color:var(--text-soft);margin-top:3px" id="profile-big-meta"></div>
   </div></div>
+  <div class="section-label">我的薪資單</div>
+  <div id="my-payroll-list"><div class="card"><div class="empty-state">載入中…</div></div></div>
+
   <div class="section-label">歷史紀錄查詢</div>
   <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
     <div><div class="form-label-sm">月份</div><input type="month" id="my-history-month" class="form-input" onchange="loadMyHistory()"></div>
@@ -628,7 +634,11 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="card"><div class="card-inner" style="font-size:11px;color:var(--text-soft);line-height:1.6">
         勞保費／健保費／退休金提繳金額請參考目前正確的薪資單手動輸入——這幾項是政府投保級距表查出來的，系統不會自動試算，避免算錯影響勞健保申報。其餘（在職期間工資、福利金預支、特休/補休時數）會在產生薪資表時自動計算。
       </div></div>
-      <div class="card"><div id="salary-config-list"><div class="empty-state">載入中…</div></div></div>
+      <div class="card"><div class="card-inner">
+        <div class="form-label-sm">選擇員工</div>
+        <select id="salary-config-eid" class="form-select" onchange="renderSalaryConfigForm()"></select>
+      </div></div>
+      <div class="card"><div id="salary-config-list"><div class="empty-state">請選擇員工</div></div></div>
       <div class="card"><div class="card-inner">
         <button class="btn-primary" onclick="saveSalaryConfig()">儲存薪資設定</button>
         <div class="form-msg" id="salary-config-msg"></div>
@@ -660,7 +670,29 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <div class="form-msg" id="pdf-review-msg"></div>
       </div>
     </div>
+
+    <div class="section-label" id="payroll-publish-label" style="display:none">薪資單發布與簽核進度</div>
+    <div class="card" id="payroll-publish-card" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+      <button class="btn-primary" onclick="publishPayroll()">📤 發布本月薪資單</button>
+      <div class="form-msg" id="payroll-publish-msg"></div>
+    </div></div>
+    <div class="card" id="payroll-overview-card" style="display:none"><div id="payroll-overview-list"><div class="empty-state">請先選擇報表月份</div></div></div>
   </div>
+  <div class="nav-spacer"></div>
+</div>
+
+<!-- ══ 財務 ══ -->
+<div class="screen" id="screen-finance">
+  <div class="mini-profile" id="mini-screen-finance">
+    <div class="mini-av" id="mini-av-screen-finance"></div>
+    <div><div class="mini-name" id="mini-name-screen-finance"></div><div class="mini-meta" id="mini-meta-screen-finance"></div></div>
+    <div class="mini-badge" id="mini-badge-screen-finance"></div>
+  </div>
+  <div class="section-label">薪資發放總覽</div>
+  <div class="card"><div class="card-inner">
+    <div class="form-label-sm">月份</div><input type="month" id="finance-month" class="form-input" onchange="loadFinanceOverview()">
+  </div></div>
+  <div id="finance-overview-list"><div class="card"><div class="empty-state">請選擇月份</div></div></div>
   <div class="nav-spacer"></div>
 </div>
 
@@ -674,6 +706,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <span class="nav-icon">⚙️</span><span class="nav-label">管理</span>
     <div class="nav-badge" id="admin-badge" style="display:none">0</div>
   </button>
+  <button class="nav-btn" id="nav-finance" style="display:none" onclick="switchTab('finance',this)"><span class="nav-icon">💰</span><span class="nav-label">財務</span></button>
 </nav>
 
 <div class="overlay" id="overlay">
@@ -806,6 +839,7 @@ async function doLogin(){
     document.getElementById('bottom-nav').classList.add('visible');
     document.getElementById('header-logout-btn').style.display='block';
     if(result.role>=1) document.getElementById('nav-admin').style.display='flex';
+    if(result.role>=2||result.isFinance) document.getElementById('nav-finance').style.display='flex';
     if(result.firstLogin) document.getElementById('first-login-banner').style.display='block';
     showScreen('punch'); renderPunch(); startGPS();
     loadAdminBadge();
@@ -822,6 +856,7 @@ function doLogout(){
   clearSession(); stopGPS(); currentGPS=null;
   document.getElementById('bottom-nav').classList.remove('visible');
   document.getElementById('nav-admin').style.display='none';
+  document.getElementById('nav-finance').style.display='none';
   document.getElementById('header-logout-btn').style.display='none';
   document.getElementById('first-login-banner').style.display='none';
   document.getElementById('inp-id').value=''; document.getElementById('inp-pw').value='';
@@ -857,6 +892,7 @@ function switchTab(n,btn){
   if(n==='overtime') loadOvertime();
   if(n==='profile') renderProfile();
   if(n==='admin')   loadAdmin();
+  if(n==='finance') loadFinanceOverview();
 }
 
 // ── 打卡頁面 ─────────────────────────────────────────────────
@@ -875,6 +911,29 @@ function renderPunch(){
   badge.className='profile-badge '+roleClasses[session.role]||'badge-staff';
   loadTodayPunch();
   loadMyPatchList();
+  checkPayrollReminder();
+}
+
+async function checkPayrollReminder(){
+  try{
+    const result=await api('get_my_payroll');
+    const pending=(result.rows||[]).filter(r=>r.status==='待簽名');
+    const banner=document.getElementById('payroll-reminder-banner');
+    if(pending.length){
+      document.getElementById('payroll-reminder-text').textContent=`你有 ${pending.length} 筆薪資單待簽署`;
+      banner.style.display='block';
+    } else {
+      banner.style.display='none';
+    }
+  }catch(e){}
+}
+
+function goToMyPayroll(){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.nav-btn')[4].classList.add('active');
+  showScreen('profile');
+  renderProfile();
+  document.getElementById('my-payroll-list')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 async function loadTodayPunch(){
@@ -1419,7 +1478,63 @@ function renderProfile(){
   document.getElementById('pw-new').value='';
   document.getElementById('pw-confirm').value='';
   document.getElementById('pw-msg').textContent='';
+  loadMyPayrollList();
 }
+
+// 我的薪資單（個人頁籤）
+let myPayrollExpanded=null; // rowIdx 目前展開的那一筆
+let myPayrollCache=[];
+async function loadMyPayrollList(){
+  const el=document.getElementById('my-payroll-list');
+  el.innerHTML='<div class="card"><div class="empty-state">載入中…</div></div>';
+  try{
+    const result=await api('get_my_payroll');
+    myPayrollCache=result.rows||[];
+    renderMyPayrollList();
+  }catch(e){ el.innerHTML=`<div class="card"><div class="empty-state">載入失敗：${e.message}</div></div>`; }
+}
+
+function renderMyPayrollList(){
+  const el=document.getElementById('my-payroll-list');
+  if(!myPayrollCache.length){ el.innerHTML='<div class="card"><div class="empty-state">尚無薪資單</div></div>'; return; }
+  el.innerHTML=myPayrollCache.map(r=>{
+    const isOpen=myPayrollExpanded===r.rowIdx;
+    const statusColor=r.status==='已簽名'?'#2a7a5a':'#b07d2a';
+    let detail='';
+    if(isOpen){
+      detail=`<div class="leave-req-detail" style="margin-top:8px">
+        在職期間工資：${r.inServicePay}<br>
+        福利金預支：${r.welfareAdvance}<br>
+        退休金提繳率：${r.pensionRate}（本月提繳 ${r.pensionAmount}）<br>
+        勞保費：${r.laborIns}　健保費：${r.healthIns}　二代健保扣繳：${r.secondGenHealthIns}<br>
+        特休可休：${r.specialEntitled} 小時　已休：${r.specialUsed} 小時<br>
+        補休累計：${r.compRemaining} 小時<br>
+        扣款小計：${r.deductionSubtotal}<br>
+        <strong>實領工資金額：${r.netPay}</strong>（發放日 ${r.payDay}）<br>
+        ${r.status==='已簽名'?'簽名時間：'+r.signedAt:''}
+      </div>
+      ${r.status==='待簽名'?`<button class="btn-primary" style="margin-top:10px" onclick="signPayroll(${r.rowIdx})">✓ 確認無誤並簽核</button>`:''}`;
+    }
+    return `<div class="card" style="margin-bottom:10px"><div class="card-inner">
+      <div class="leave-req-header" style="cursor:pointer" onclick="myPayrollExpanded=${isOpen?'null':r.rowIdx};renderMyPayrollList()">
+        <span class="leave-req-name">${r.month} 薪資單</span>
+        <span style="font-size:11px;font-weight:700;color:${statusColor}">${r.status}</span>
+      </div>
+      ${detail}
+    </div></div>`;
+  }).join('');
+}
+
+async function signPayroll(rowIdx){
+  if(!confirm('確認以上薪資明細無誤並簽核？簽核後將無法自行修改。'))return;
+  try{
+    await api('sign_payroll',{rowIdx});
+    showToast('✓ 簽核完成');
+    await loadMyPayrollList();
+    checkPayrollReminder();
+  }catch(e){ showToast('⚠ '+e.message); }
+}
+
 async function changePassword(){
   const cur=document.getElementById('pw-current').value;
   const nw=document.getElementById('pw-new').value;
@@ -1447,6 +1562,9 @@ function loadAdmin(){
   document.getElementById('btn-emp-add-leave').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-roster').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-payroll').style.display=session.role>=2?'block':'none';
+  document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
+  document.getElementById('payroll-publish-card').style.display=session.role>=2?'block':'none';
+  document.getElementById('payroll-overview-card').style.display=session.role>=2?'block':'none';
   loadAdminAttendance();
   loadAdminLeaveList();
   loadAdminPatchList();
@@ -1462,7 +1580,8 @@ function loadAdmin(){
   const thisMonth=todayKey().slice(0,7).replace('/','-');
   const mq=document.getElementById('emp-query-month'), rm=document.getElementById('report-month');
   if(!mq.value) mq.value=thisMonth;
-  if(!rm.value) rm.value=thisMonth;
+  if(!rm.value){ rm.value=thisMonth; rm.onchange=loadPayrollOverview; }
+  if(session.role>=2) loadPayrollOverview();
 }
 
 function switchAdminSub(sub, btn){
@@ -1705,11 +1824,14 @@ async function loadAdminRoles(){
     roleEl.innerHTML=(result.employees||[]).map(e=>`
       <div class="settings-row">
         <div><div style="font-size:13px;font-weight:700">${e.name} <span style="font-size:11px;color:var(--text-soft)">${e.eid}</span></div><div style="font-size:11px;color:var(--text-soft)">${e.title}</div></div>
-        <select onchange="setRole('${e.eid}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit">
-          <option value="0" ${(e.role||0)===0?'selected':''}>員工</option>
-          <option value="1" ${(e.role||0)===1?'selected':''}>部門主管</option>
-          <option value="2" ${(e.role||0)===2?'selected':''}>最高管理者</option>
-        </select>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="font-size:11px;color:var(--text-soft);display:flex;align-items:center;gap:4px"><input type="checkbox" ${e.isFinance?'checked':''} onchange="setFinanceFlag('${e.eid}',this.checked)">財務</label>
+          <select onchange="setRole('${e.eid}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit">
+            <option value="0" ${(e.role||0)===0?'selected':''}>員工</option>
+            <option value="1" ${(e.role||0)===1?'selected':''}>部門主管</option>
+            <option value="2" ${(e.role||0)===2?'selected':''}>最高管理者</option>
+          </select>
+        </div>
       </div>`).join('');
   } catch(e){ roleEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
@@ -1734,49 +1856,57 @@ async function loadAdminGpsConfig(){
   }
 }
 
-// 薪資設定（role>=2）
+// 薪資設定（role>=2）：先選員工，只顯示該員工的欄位，避免所有人一次列出來太長
+let salaryConfigCache={};
 async function loadSalaryConfig(){
-  const el=document.getElementById('salary-config-list');
-  el.innerHTML='<div class="empty-state">載入中…</div>';
+  const sel=document.getElementById('salary-config-eid');
+  const listEl=document.getElementById('salary-config-list');
+  listEl.innerHTML='<div class="empty-state">請選擇員工</div>';
   try{
     const result=await api('get_salary_config');
     const rows=result.configs||[];
-    if(!rows.length){el.innerHTML='<div class="empty-state">尚無在職員工</div>';return;}
-    el.innerHTML=rows.map(c=>`
-      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;padding:14px 20px">
-        <div style="font-size:13px;font-weight:700">${c.eid}</div>
-        <div class="form-row-2">
-          <div><div class="form-label-sm">目標薪資(底薪)</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="targetSalary" value="${c.targetSalary||0}"></div>
-          <div><div class="form-label-sm">基本工資</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="baseSalary" value="${c.baseSalary||29500}"></div>
-        </div>
-        <div class="form-row-2">
-          <div><div class="form-label-sm">勞保費</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="laborIns" value="${c.laborIns||0}"></div>
-          <div><div class="form-label-sm">健保費</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="healthIns" value="${c.healthIns||0}"></div>
-        </div>
-        <div class="form-row-2">
-          <div><div class="form-label-sm">退休金提繳率</div><input type="number" step="0.001" class="form-input sc-field" data-eid="${c.eid}" data-field="pensionRate" value="${c.pensionRate||0}"></div>
-          <div><div class="form-label-sm">本月提繳退休金</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="pensionAmount" value="${c.pensionAmount||0}"></div>
-        </div>
-        <div class="form-row-2">
-          <div><div class="form-label-sm">二代健保扣繳</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="secondGenHealthIns" value="${c.secondGenHealthIns||0}"></div>
-          <div><div class="form-label-sm">健保眷屬數</div><input type="number" class="form-input sc-field" data-eid="${c.eid}" data-field="healthInsDependents" value="${c.healthInsDependents||0}"></div>
-        </div>
-      </div>`).join('');
-  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+    salaryConfigCache={};
+    rows.forEach(c=>salaryConfigCache[c.eid]=c);
+    sel.innerHTML='<option value="">請選擇員工</option>'+rows.map(c=>`<option value="${c.eid}">${c.name}（${c.eid}）</option>`).join('');
+  }catch(e){ sel.innerHTML='<option value="">載入失敗</option>'; }
+}
+
+function renderSalaryConfigForm(){
+  const eid=document.getElementById('salary-config-eid').value;
+  const listEl=document.getElementById('salary-config-list');
+  if(!eid){ listEl.innerHTML='<div class="empty-state">請選擇員工</div>'; return; }
+  const c=salaryConfigCache[eid];
+  listEl.innerHTML=`
+    <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;padding:14px 20px">
+      <div style="font-size:13px;font-weight:700">${c.name}（${c.eid}）</div>
+      <div class="form-row-2">
+        <div><div class="form-label-sm">目標薪資(底薪)</div><input type="number" class="form-input sc-field" data-field="targetSalary" value="${c.targetSalary||0}"></div>
+        <div><div class="form-label-sm">基本工資</div><input type="number" class="form-input sc-field" data-field="baseSalary" value="${c.baseSalary||29500}"></div>
+      </div>
+      <div class="form-row-2">
+        <div><div class="form-label-sm">勞保費</div><input type="number" class="form-input sc-field" data-field="laborIns" value="${c.laborIns||0}"></div>
+        <div><div class="form-label-sm">健保費</div><input type="number" class="form-input sc-field" data-field="healthIns" value="${c.healthIns||0}"></div>
+      </div>
+      <div class="form-row-2">
+        <div><div class="form-label-sm">退休金提繳率</div><input type="number" step="0.001" class="form-input sc-field" data-field="pensionRate" value="${c.pensionRate||0}"></div>
+        <div><div class="form-label-sm">本月提繳退休金</div><input type="number" class="form-input sc-field" data-field="pensionAmount" value="${c.pensionAmount||0}"></div>
+      </div>
+      <div class="form-row-2">
+        <div><div class="form-label-sm">二代健保扣繳</div><input type="number" class="form-input sc-field" data-field="secondGenHealthIns" value="${c.secondGenHealthIns||0}"></div>
+        <div><div class="form-label-sm">健保眷屬數</div><input type="number" class="form-input sc-field" data-field="healthInsDependents" value="${c.healthInsDependents||0}"></div>
+      </div>
+    </div>`;
 }
 
 async function saveSalaryConfig(){
+  const eid=document.getElementById('salary-config-eid').value;
   const msg=document.getElementById('salary-config-msg');
-  const byEid={};
-  document.querySelectorAll('.sc-field').forEach(input=>{
-    const eid=input.dataset.eid, field=input.dataset.field;
-    if(!byEid[eid]) byEid[eid]={eid};
-    byEid[eid][field]=parseFloat(input.value)||0;
-  });
-  const rows=Object.values(byEid);
+  if(!eid){msg.textContent='請先選擇員工';msg.className='form-msg err';return;}
+  const row={eid};
+  document.querySelectorAll('.sc-field').forEach(input=>{ row[input.dataset.field]=parseFloat(input.value)||0; });
   msg.textContent='儲存中…';msg.className='form-msg';
   try{
-    await api('save_salary_config',{rows});
+    await api('save_salary_config',{rows:[row]});
     msg.textContent='✓ 薪資設定已儲存';msg.className='form-msg ok';
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
@@ -2093,6 +2223,10 @@ async function setRole(eid,roleVal){
   try{ await api('set_role',{targetEid:eid,role:parseInt(roleVal)}); showToast('✓ 權限已更新'); }
   catch(e){ showToast('⚠ '+e.message); }
 }
+async function setFinanceFlag(eid,checked){
+  try{ await api('set_finance_flag',{targetEid:eid,isFinance:checked}); showToast('✓ 財務權限已更新'); }
+  catch(e){ showToast('⚠ '+e.message); }
+}
 async function saveGpsConfig(){
   const settings={
     '辦公室地址':document.getElementById('cfg-addr').value,
@@ -2242,6 +2376,78 @@ async function exportPayrollPdf(){
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
 
+// ── 薪資單發布與簽核進度 ──────────────────────────────────────
+async function publishPayroll(){
+  const monthVal=document.getElementById('report-month').value;
+  const msg=document.getElementById('payroll-publish-msg');
+  if(!monthVal){msg.textContent='請選擇報表月份';msg.className='form-msg err';return;}
+  if(!confirm(`確定要發布 ${monthVal} 的薪資單嗎？發布後員工會收到通知並看到明細。`))return;
+  msg.textContent='發布中…';msg.className='form-msg';
+  try{
+    const result=await api('publish_payroll',{month:monthVal.replace('-','/')});
+    msg.textContent='✓ '+result.message;msg.className='form-msg ok';
+    loadPayrollOverview();
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+async function loadPayrollOverview(){
+  const monthVal=document.getElementById('report-month').value;
+  const el=document.getElementById('payroll-overview-list');
+  if(!monthVal){el.innerHTML='<div class="empty-state">請先選擇報表月份</div>';return;}
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const result=await api('get_payroll_overview',{month:monthVal.replace('-','/')});
+    const rows=result.rows||[];
+    if(!rows.length){el.innerHTML='<div class="empty-state">本月尚未發布薪資單</div>';return;}
+    const signedCount=rows.filter(r=>r.status==='已簽名').length;
+    el.innerHTML=`<div class="settings-row"><div style="font-size:12px;color:var(--text-soft)">共 ${rows.length} 份，已簽名 ${signedCount} 份，未簽名 ${rows.length-signedCount} 份</div></div>`+
+      rows.map(r=>`
+      <div class="settings-row">
+        <div>
+          <div style="font-size:13px;font-weight:700">${r.name} <span style="font-size:11px;color:var(--text-soft)">${r.eid}</span></div>
+          <div style="font-size:11px;color:var(--text-soft)">實領 ${r.netPay}（${r.payDay}）· 預支 ${r.welfareAdvance}（${r.advancePayDay}）</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;font-weight:700;color:${r.status==='已簽名'?'#2a7a5a':'#b07d2a'}">${r.status}</span>
+          ${r.status==='已簽名'?`<button onclick="resetPayrollSignature(${r.rowIdx})" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer">重置簽名</button>`:''}
+        </div>
+      </div>`).join('');
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
+async function resetPayrollSignature(rowIdx){
+  if(!confirm('確定要重置這份薪資單的簽名狀態嗎？重置後才能重新發布覆蓋這位員工的數字。'))return;
+  try{
+    await api('reset_payroll_signature',{rowIdx});
+    showToast('✓ 已重置簽名狀態');
+    loadPayrollOverview();
+  }catch(e){ showToast('⚠ '+e.message); }
+}
+
+// ── 財務頁籤：只看應發金額＋簽核狀態 ────────────────────────────
+async function loadFinanceOverview(){
+  const monthInput=document.getElementById('finance-month');
+  if(!monthInput.value) monthInput.value=todayKey().slice(0,7).replace('/','-');
+  const el=document.getElementById('finance-overview-list');
+  el.innerHTML='<div class="card"><div class="empty-state">載入中…</div></div>';
+  try{
+    const result=await api('get_payroll_overview',{month:monthInput.value.replace('-','/')});
+    const rows=result.rows||[];
+    if(!rows.length){el.innerHTML='<div class="card"><div class="empty-state">本月尚未發布薪資單</div></div>';return;}
+    el.innerHTML=rows.map(r=>`
+      <div class="card" style="margin-bottom:10px"><div class="card-inner">
+        <div class="leave-req-header">
+          <span class="leave-req-name">${r.name} <span style="font-size:11px;color:var(--text-soft);font-weight:400">${r.eid}</span></span>
+          <span style="font-size:11px;font-weight:700;color:${r.status==='已簽名'?'#2a7a5a':'#b07d2a'}">${r.status==='已簽名'?'✓ 可發放':'⏳ 未簽核'}</span>
+        </div>
+        <div class="leave-req-detail">
+          實領工資：<strong>${r.netPay}</strong>　發放日：${r.payDay}<br>
+          預支薪資：<strong>${r.welfareAdvance}</strong>　發放日：${r.advancePayDay}
+        </div>
+      </div></div>`).join('');
+  }catch(e){ el.innerHTML=`<div class="card"><div class="empty-state">載入失敗：${e.message}</div></div>`; }
+}
+
 // ── 加班/提早上班 ──────────────────────────────────────────────
 function onOtTypeChange(){
   const type=document.getElementById('ot-type').value;
@@ -2323,6 +2529,7 @@ if(session){
   document.getElementById('bottom-nav').classList.add('visible');
   document.getElementById('header-logout-btn').style.display='block';
   if(session.role>=1) document.getElementById('nav-admin').style.display='flex';
+  if(session.role>=2||session.isFinance) document.getElementById('nav-finance').style.display='flex';
   if(session.firstLogin) document.getElementById('first-login-banner').style.display='block';
   showScreen('punch'); renderPunch(); startGPS(); loadAdminBadge();
 }
