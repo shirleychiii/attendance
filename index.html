@@ -1305,7 +1305,12 @@ async function loadRecords(){
     approvedOT.forEach(r=>{
       if(r.endTime){
         const[eh,em]=r.endTime.split(':').map(Number);
-        const end=eh*60+em, start=18*60+30;
+        const end=eh*60+em;
+        // 加班起算門檻依當天實際上班時間往後推（上班+8工時+1午休+0.5休息才開始算加班），
+        // 找不到當天打卡紀錄則以彈性最早 09:00 為基準（等同固定 18:30），跟後端 computeCompBalance 邏輯一致
+        const inT=byDate[r.date]?.in;
+        let start=18*60+30;
+        if(inT){ const[ih,im]=inT.split(':').map(Number); start=ih*60+im+9*60+30; }
         if(end>start) otHrs+=Math.round((end-start)/60*10)/10;
       }
     });
@@ -1339,7 +1344,7 @@ async function loadRecords(){
         </div>
         <div class="record-right">
           <div class="record-time">${r.time}</div>
-          ${r.lat?`<div class="record-loc">📍 ${parseFloat(r.lat).toFixed(4)},${parseFloat(r.lng).toFixed(4)}</div>`:''}
+          ${r.lat?`<a class="record-loc" href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">📍 ${parseFloat(r.lat).toFixed(4)},${parseFloat(r.lng).toFixed(4)}</a>`:''}
         </div>
       </div>`;
     }).join('');
