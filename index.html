@@ -726,6 +726,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="payroll-publish-msg"></div>
     </div></div>
     <div class="card" id="payroll-months-card" style="display:none"><div id="payroll-months-list"><div class="empty-state">載入中…</div></div></div>
+    <div style="font-size:11px;color:var(--text-soft);padding:0 2px 4px" id="payroll-overview-hint">👇 點擊上方任一月份可查看該月每位員工的明細；若要修改已發布的薪資單，未簽名的直接重新按「發布本月薪資單」即可覆蓋，已簽名的要先按下方「重置簽名」才能重新發布覆蓋</div>
+    <div class="section-label" id="payroll-overview-label" style="display:none">薪資單明細與簽核狀態</div>
     <div class="card" id="payroll-overview-card" style="display:none"><div id="payroll-overview-list"><div class="empty-state">請先選擇報表月份</div></div></div>
   </div>
   <div class="nav-spacer"></div>
@@ -1676,6 +1678,8 @@ function loadAdmin(){
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-card').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-months-card').style.display=session.role>=2?'block':'none';
+  document.getElementById('payroll-overview-hint').style.display=session.role>=2?'block':'none';
+  document.getElementById('payroll-overview-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-card').style.display=session.role>=2?'block':'none';
   document.getElementById('emp-manage-section').style.display=session.role>=2?'block':'none';
   if(session.role>=2){ loadPayrollMonthsHistory(); loadEmpManageList(); }
