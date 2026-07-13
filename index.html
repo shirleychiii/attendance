@@ -225,6 +225,12 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div class="first-login-banner" id="payroll-reminder-banner" style="display:none;background:var(--blue-lo);color:var(--deep-blue);cursor:pointer" onclick="goToMyPayroll()">
     📄 <span id="payroll-reminder-text"></span>（點擊前往確認）
   </div>
+  <div class="first-login-banner" id="sick-proof-banner" style="display:none;background:var(--amber-lo);color:var(--amber);cursor:pointer" onclick="document.querySelectorAll('.nav-btn')[2].click()">
+    📎 <span id="sick-proof-text"></span>（點擊前往補傳）
+  </div>
+  <div class="first-login-banner" id="admin-pending-banner" style="display:none;background:var(--amber-lo);color:var(--amber);cursor:pointer" onclick="document.getElementById('nav-admin').click()">
+    🔔 <span id="admin-pending-text"></span>（點擊前往審核）
+  </div>
   <div class="profile-bar">
     <div class="avatar"><span id="av-txt"></span><div class="role-dot" id="av-dot"></div></div>
     <div class="profile-info">
@@ -372,10 +378,10 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <input type="text" id="leave-note" class="form-input" placeholder="請說明請假原因">
     </div>
     <div id="proof-row" style="display:none">
-      <div class="form-label-sm">看診證明 <span class="req">*必填</span></div>
+      <div class="form-label-sm">看診證明 <span style="font-size:11px;color:var(--text-soft);font-weight:400">（可以先送出請假，之後再補傳，但主管審核前一定要補齊）</span></div>
       <div class="upload-area" onclick="document.getElementById('proof-file').click()">
         <div class="upload-preview" id="proof-preview"><img id="proof-img"></div>
-        <div id="proof-placeholder"><div style="font-size:22px;margin-bottom:4px">📎</div><div style="font-size:12px;color:var(--text-soft)">點擊上傳看診證明<br>支援 JPG、PNG、PDF，上限 5MB（圖片會自動壓縮）</div></div>
+        <div id="proof-placeholder"><div style="font-size:22px;margin-bottom:4px">📎</div><div style="font-size:12px;color:var(--text-soft)">點擊上傳看診證明（可先跳過，之後再補）<br>支援 JPG、PNG、PDF，上限 5MB（圖片會自動壓縮）</div></div>
         <input type="file" id="proof-file" accept="image/*,.pdf" style="display:none" onchange="onProofSelected(this)">
       </div>
       <div style="font-size:11px;color:var(--deep-blue);margin-top:5px" id="proof-name"></div>
@@ -385,6 +391,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   </div></div>
   <div class="section-label">我的請假紀錄</div>
   <div class="card"><div id="my-leave-list"><div class="empty-state">載入中…</div></div></div>
+  <input type="file" id="supp-proof-file" accept="image/*,.pdf" style="display:none" onchange="onSuppProofSelected(this)">
 
   <div class="section-label">申請銷假</div>
   <div class="card"><div class="card-inner">
@@ -991,6 +998,35 @@ function renderPunch(){
   loadTodayPunch();
   loadMyPatchList();
   checkPayrollReminder();
+  checkSickProofReminder();
+}
+
+// 病假結束後第一個工作天開始，只要還沒補看診證明就持續提醒（不會自動消失，直到補齊或申請被拒絕）
+function nextWorkday(date){
+  const d=new Date(date);
+  while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+  return d;
+}
+async function checkSickProofReminder(){
+  try{
+    const result=await api('get_leave_requests');
+    const today=new Date(); today.setHours(0,0,0,0);
+    const missing=(result.requests||[]).filter(r=>{
+      if(r.type!=='病假'||r.status!=='待審核'||r.proofUrl)return false;
+      const dayAfterEnd=new Date(String(r.end).replace(/\//g,'-')+' 00:00:00');
+      dayAfterEnd.setDate(dayAfterEnd.getDate()+1);
+      const reminderStart=nextWorkday(dayAfterEnd);
+      reminderStart.setHours(0,0,0,0);
+      return today>=reminderStart;
+    });
+    const banner=document.getElementById('sick-proof-banner');
+    if(missing.length){
+      document.getElementById('sick-proof-text').textContent=`你有 ${missing.length} 筆病假尚未補上看診證明`;
+      banner.style.display='block';
+    } else {
+      banner.style.display='none';
+    }
+  }catch(e){}
 }
 
 async function checkPayrollReminder(){
@@ -1359,7 +1395,7 @@ async function loadRecords(){
 // ── 請假 ──────────────────────────────────────────────────────
 const LEAVE_RULES={
   '特休':['最小單位：半天','1天假需提前 3 個工作天申請','2天以上需提前 7 個工作天申請'],
-  '病假':['最小單位：1小時','需上傳當日看診證明','午休 12:00–13:00 不計入請假時數','說明欄位必填'],
+  '病假':['最小單位：1小時','看診證明可以先不上傳，之後在「我的請假紀錄」補傳即可，但主管審核前一定要補齊','午休 12:00–13:00 不計入請假時數','說明欄位必填'],
   '事假':['最小單位：1小時','1天假需提前 3 個工作天申請','2天以上需提前 7 個工作天申請','午休 12:00–13:00 不計入請假時數','說明欄位必填'],
   '生理假':['最小單位：1小時','每月 1 天，全年前 3 天不併入病假','當日申請可','午休 12:00–13:00 不計入請假時數'],
   '婚假':['說明欄位必填','法定給假8日（64小時），工資照給','實際核給時數／期限以管理員解鎖設定為準'],
@@ -1545,13 +1581,55 @@ async function loadLeave(){
         +'<div class="leave-req-detail">'
         +r.start+(r.start!==r.end?' ~ '+r.end:'')+' · '+(r.unit||'')
         +(r.note?'<br>說明：'+r.note:'')
+        +(r.proofUrl?'<br><a href="'+r.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':'')
         +(r.status==='待審核'?'<br><span style="font-size:11px;color:var(--amber)">⏳ '+waitWho+'</span>':'')
         +(r.reviewer?'<br>審核者：'+r.reviewer+(r.reviewTime?' ('+r.reviewTime+')':''):'')
         +(r.reason?'<br>審核備註：'+r.reason:'')
+        +(r.type==='病假'&&r.status==='待審核'&&!r.proofUrl
+          ?'<div style="margin-top:8px"><button onclick="triggerSuppProofUpload('+r.rowIdx+')" style="font-size:11px;font-weight:700;padding:7px 12px;border:1.5px solid var(--amber);border-radius:8px;background:var(--amber-lo);color:var(--amber);cursor:pointer;font-family:inherit">📎 補傳看診證明</button></div>'
+          :'')
         +'</div>'
         +'</div>';
     }).join('');
   } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
+// 病假送出後，看診證明可以之後再補：共用一個隱藏的檔案選擇器，點哪一筆就補傳到哪一筆
+let suppProofRowIdx=null;
+function triggerSuppProofUpload(rowIdx){
+  suppProofRowIdx=rowIdx;
+  document.getElementById('supp-proof-file').click();
+}
+async function onSuppProofSelected(input){
+  const file=input.files[0]; if(!file||!suppProofRowIdx)return;
+  if(file.size>PROOF_MAX_MB*1024*1024){
+    showToast(`⚠ 檔案過大（${(file.size/1024/1024).toFixed(1)}MB），上限 ${PROOF_MAX_MB}MB`);
+    input.value=''; return;
+  }
+  showToast('上傳中…');
+  try{
+    let base64, mimeType;
+    if(file.type.startsWith('image/')){
+      const compressed=await compressImage(file,1600,0.8,1.2*1024*1024);
+      base64=compressed.base64; mimeType=compressed.mimeType;
+    }else{
+      base64=await new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=e=>resolve(e.target.result.split(',')[1]);
+        reader.onerror=reject;
+        reader.readAsDataURL(file);
+      });
+      mimeType=file.type;
+    }
+    const d=new Date(), monthStr=`${d.getFullYear()}-${f2(d.getMonth()+1)}`;
+    const fileName=`${session.eid}_${session.name}_補傳_${Date.now()}.${file.name.split('.').pop()}`;
+    const up=await api('upload_proof',{fileBase64:base64,mimeType,fileName,month:monthStr});
+    await api('attach_leave_proof',{rowIdx:suppProofRowIdx,proofUrl:up.fileUrl||''});
+    showToast('✓ 已補上看診證明');
+    suppProofRowIdx=null; input.value='';
+    loadLeave();
+    checkSickProofReminder();
+  }catch(e){ showToast('⚠ '+e.message); input.value=''; }
 }
 
 // 我的補卡紀錄（打卡頁籤）
@@ -1590,7 +1668,6 @@ async function submitLeave(){
   if(!start||!end){msg.textContent='請填寫請假日期';msg.className='form-msg err';return;}
   if(start>end){msg.textContent='結束日期不能早於開始日期';msg.className='form-msg err';return;}
   if(type!=='特休'&&!note.trim()){msg.textContent='⚠ 此假別說明為必填';msg.className='form-msg err';return;}
-  if(type==='病假'&&!proofFileData){msg.textContent='⚠ 病假需上傳看診證明';msg.className='form-msg err';return;}
   msg.textContent='送出中…'; msg.className='form-msg';
   let unit='', proofUrl='';
   if(type==='特休'){
@@ -3000,6 +3077,13 @@ async function loadAdminBadge(){
     const badge=document.getElementById('admin-badge');
     if(count>0){badge.style.display='flex';badge.textContent=count;}
     else badge.style.display='none';
+    const banner=document.getElementById('admin-pending-banner');
+    if(count>0){
+      document.getElementById('admin-pending-text').textContent=`你有 ${count} 筆待審核項目`;
+      banner.style.display='block';
+    } else {
+      banner.style.display='none';
+    }
   }catch(e){}
 }
 
