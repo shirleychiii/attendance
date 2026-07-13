@@ -344,7 +344,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="leave-rule-box" id="leave-rule-box" style="margin-top:8px"></div>
     </div>
     <div class="form-row-2">
-      <div><div class="form-label-sm">開始日期</div><input type="date" id="leave-start" class="form-input" onchange="calcLeaveHours()"></div>
+      <div><div class="form-label-sm">開始日期</div><input type="date" id="leave-start" class="form-input" onchange="document.getElementById('leave-end').value=this.value;calcLeaveHours()"></div>
       <div><div class="form-label-sm">結束日期</div><input type="date" id="leave-end" class="form-input" onchange="calcLeaveHours()"></div>
     </div>
     <div id="time-range-row">
@@ -518,6 +518,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div class="mode-tabs">
     <button class="mode-tab active" onclick="switchAdminSub('review',this)">🗂 審核</button>
     <button class="mode-tab" onclick="switchAdminSub('manage',this)">👥 員工</button>
+    <button class="mode-tab" id="tab-companyoverview" onclick="switchAdminSub('companyoverview',this)" style="display:none">📈 總覽</button>
     <button class="mode-tab" id="tab-leavegrant" onclick="switchAdminSub('leavegrant',this)" style="display:none">🎁 假別授權</button>
     <button class="mode-tab" onclick="switchAdminSub('settings',this)">⚙️ 設定</button>
     <button class="mode-tab" onclick="switchAdminSub('reports',this)">📊 報表</button>
@@ -639,6 +640,22 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="eal-msg"></div>
     </div></div>
     <div id="emp-history-list"><div class="card"><div class="empty-state">請選擇員工與月份</div></div></div>
+  </div>
+
+  <!-- ══ 公司總覽 ══ -->
+  <div id="admin-sub-companyoverview" style="display:none">
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="switchCompanyOverview('attendance',this)">🕐 打卡總覽</button>
+      <button class="mode-tab" onclick="switchCompanyOverview('leave',this)">🗓 請假總覽</button>
+      <button class="mode-tab" onclick="switchCompanyOverview('balance',this)">⏳ 假別時數總覽</button>
+    </div>
+    <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+      <div class="form-row-2">
+        <div><div class="form-label-sm">部門</div><select id="co-dept" class="form-select" onchange="loadCompanyOverview()"><option value="">全部部門</option></select></div>
+        <div id="co-month-row"><div class="form-label-sm">月份</div><input type="month" id="co-month" class="form-input" onchange="loadCompanyOverview()"></div>
+      </div>
+    </div></div>
+    <div id="co-table-wrap" style="overflow-x:auto"><div class="card"><div id="co-table" class="empty-state">載入中…</div></div></div>
   </div>
 
   <!-- ══ 特殊假別授權 ══ -->
@@ -1812,6 +1829,7 @@ function loadAdmin(){
   document.getElementById('btn-emp-add-punch').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-emp-add-leave').style.display=session.role>=2?'block':'none';
   document.getElementById('tab-leavegrant').style.display=session.role>=2?'block':'none';
+  document.getElementById('tab-companyoverview').style.display=session.role>=1?'block':'none';
   document.getElementById('btn-export-roster').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-payroll').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
@@ -1844,10 +1862,11 @@ function loadAdmin(){
 function switchAdminSub(sub, btn){
   document.querySelectorAll('#screen-admin .mode-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['review','manage','leavegrant','settings','reports'].forEach(s=>{
+  ['review','manage','companyoverview','leavegrant','settings','reports'].forEach(s=>{
     document.getElementById('admin-sub-'+s).style.display = s===sub ? 'block' : 'none';
   });
   if(sub==='leavegrant'){ loadLeaveGrantList(); onLeaveGrantTypeChange(); }
+  if(sub==='companyoverview'){ initCompanyOverview(); }
 }
 
 // 今日出勤（從後端撈所有人今日打卡）
@@ -1888,13 +1907,14 @@ async function loadAdminLeaveList(){
   const ll=document.getElementById('admin-leave-list');
   ll.innerHTML='<div class="empty-state">載入中…</div>';
   try {
-    const result=await api('get_leave_requests',{pendingOnly:true});
+    const result=await api('get_leave_requests',{pendingOnly:true,adminView:true});
     const pending=result.requests||[];
     document.getElementById('pending-leave-count').textContent=pending.length?`（${pending.length}）`:'';
     if(!pending.length){ll.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
     ll.innerHTML=pending.map(r=>{
       const days=Math.round((new Date(r.end)-new Date(r.start))/86400000)+1;
       const canReview=session.role>=2||(session.role>=1&&days<=1);
+      const missingProof=r.type==='病假'&&!r.proofUrl;
       const rid='leave_'+r.rowIdx;
       return '<div class="leave-req-card">'
         +'<div class="leave-req-header">'
@@ -1903,10 +1923,11 @@ async function loadAdminLeaveList(){
         +'</div>'
         +'<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">'+(r.dept||'')+' '+(r.title||'')+'</div>'
         +'<div class="leave-req-detail">'+r.start+(r.start!==r.end?' ~ '+r.end:'')+' · '+(r.unit||'')+(r.note?'<br>說明：'+r.note:'')+(r.proofUrl?'<br><a href="'+r.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':'')+'</div>'
+        +(missingProof?'<div style="font-size:11px;color:var(--amber);padding:4px 0">⚠ 尚未上傳看診證明，需員工補傳後才能核准</div>':'')
         +(canReview
           ?'<div style="margin-bottom:8px"><input type="text" id="'+rid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>'
           +'<div class="leave-req-actions">'
-          +'<button class="btn-approve" onclick="reviewLeaveWithComment('+r.rowIdx+',\'已核准\',\''+rid+'_comment\')">✓ 核准</button>'
+          +'<button class="btn-approve" '+(missingProof?'disabled style="opacity:.45;cursor:not-allowed"':'')+' onclick="reviewLeaveWithComment('+r.rowIdx+',\'已核准\',\''+rid+'_comment\')">✓ 核准</button>'
           +'<button class="btn-reject" onclick="reviewLeaveWithComment('+r.rowIdx+',\'已拒絕\',\''+rid+'_comment\')">✗ 拒絕</button>'
           +'</div>'
           :'<div style="font-size:11px;color:var(--amber);padding:4px 0">⚠ '+days+'天假需最高管理者審核</div>'
@@ -1921,7 +1942,7 @@ async function loadAdminPatchList(){
   const pl=document.getElementById('admin-patch-list');
   pl.innerHTML='<div class="empty-state">載入中…</div>';
   try {
-    const result=await api('get_patch_requests',{pendingOnly:true});
+    const result=await api('get_patch_requests',{pendingOnly:true,adminView:true});
     const pending=result.requests||[];
     document.getElementById('pending-patch-count').textContent=pending.length?`（${pending.length}）`:'';
     if(!pending.length){pl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
@@ -1982,7 +2003,7 @@ async function loadAdminCancelList(){
   const cl=document.getElementById('admin-cancel-list');
   cl.innerHTML='<div class="empty-state">載入中…</div>';
   try {
-    const result=await api('get_cancel_requests',{pendingOnly:true});
+    const result=await api('get_cancel_requests',{pendingOnly:true,adminView:true});
     const pending=result.requests||[];
     document.getElementById('pending-cancel-count').textContent=pending.length?`（${pending.length}）`:'';
     if(!pending.length){cl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
@@ -2026,14 +2047,14 @@ async function toggleReviewHistory(kind){
   try{
     let items=[];
     if(kind==='leave'){
-      const r=await api('get_leave_requests');
+      const r=await api('get_leave_requests',{adminView:true});
       items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
         title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.type, status:x.status,
-        detail:`${x.start}${x.start!==x.end?' ~ '+x.end:''} · ${x.unit||''}`,
+        detail:`${x.start}${x.start!==x.end?' ~ '+x.end:''} · ${x.unit||''}${x.proofUrl?'<br><a href="'+x.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':''}`,
         reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
       }));
     } else if(kind==='patch'){
-      const r=await api('get_patch_requests');
+      const r=await api('get_patch_requests',{adminView:true});
       items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
         title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+(x.type==='上班卡'?'上班補卡':'下班補卡'), status:x.status,
         detail:`${x.date} ${x.time}`,
@@ -2047,7 +2068,7 @@ async function toggleReviewHistory(kind){
         reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
       }));
     } else if(kind==='cancel'){
-      const r=await api('get_cancel_requests');
+      const r=await api('get_cancel_requests',{adminView:true});
       items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
         title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.cancelType, status:x.status,
         detail:`${x.date}${x.relatedType?' · '+x.relatedType:''}`,
@@ -2328,10 +2349,10 @@ async function loadEmpHistory(){
   try{
     const [attR, leaveR, otR, patchR, cancelR] = await Promise.all([
       api('get_attendance',{eid,month}),
-      api('get_leave_requests',{eid}),
+      api('get_leave_requests',{eid,adminView:true}),
       api('get_overtime_requests',{eid,adminView:true}),
-      api('get_patch_requests',{eid}),
-      api('get_cancel_requests',{eid}),
+      api('get_patch_requests',{eid,adminView:true}),
+      api('get_cancel_requests',{eid,adminView:true}),
     ]);
     empHistoryCache={
       punches:(attR.records||[]).sort((a,b)=>a.date+a.time<b.date+b.time?-1:1),
@@ -2458,7 +2479,7 @@ function renderEmpLeaveList(){
     }
     return `<div class="leave-req-card">
       <div class="leave-req-header"><span class="leave-req-name">${r.type}${isAdmin?' <span style="font-size:9px;background:var(--blue-lo);color:var(--deep-blue);padding:1px 6px;border-radius:99px">管理員建立</span>':''}</span><span style="font-size:11px;font-weight:700;color:${EMP_HIST_SC[r.status]||'#854F0B'}">${r.status}</span></div>
-      <div class="leave-req-detail">${r.start}${r.start!==r.end?' ~ '+r.end:''} · ${r.unit||''}${r.note?'<br>說明：'+r.note:''}${r.reviewer?'<br>審核者：'+r.reviewer:''}</div>
+      <div class="leave-req-detail">${r.start}${r.start!==r.end?' ~ '+r.end:''} · ${r.unit||''}${r.note?'<br>說明：'+r.note:''}${r.proofUrl?'<br><a href="'+r.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':''}${r.reviewer?'<br>審核者：'+r.reviewer:''}</div>
       ${session.role>=2?`<div class="leave-req-actions"><button class="btn-approve" style="flex:none;padding:6px 12px" onclick="empHistoryEditing={kind:'leave',rowIdx:${r.rowIdx}};renderEmpHistory()">編輯</button></div>`:''}
     </div>`;
   }).join('');
@@ -2600,6 +2621,97 @@ async function loadLeaveGrantList(){
         <span style="font-size:11px;font-weight:700;color:${sc[g.status]||'#854F0B'}">${g.status}</span>
       </div>`).join('');
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+
+// ── 管理頁「總覽」：全公司打卡/請假/假別時數，可用部門篩選一次看到所有員工 ──
+let companyOverviewView='attendance';
+let companyOverviewDeptsLoaded=false;
+async function initCompanyOverview(){
+  if(!companyOverviewDeptsLoaded){
+    try{
+      const result=await api('get_employees');
+      const depts=[...new Set((result.employees||[]).map(e=>e.dept).filter(Boolean))];
+      const sel=document.getElementById('co-dept');
+      sel.innerHTML='<option value="">全部部門</option>'+depts.map(d=>`<option value="${d}">${d}</option>`).join('');
+      companyOverviewDeptsLoaded=true;
+    }catch(e){}
+  }
+  const monthInput=document.getElementById('co-month');
+  if(!monthInput.value) monthInput.value=todayKey().slice(0,7).replace('/','-');
+  loadCompanyOverview();
+}
+function switchCompanyOverview(view,btn){
+  companyOverviewView=view;
+  document.querySelectorAll('#admin-sub-companyoverview .mode-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('co-month-row').style.display=view==='balance'?'none':'block';
+  loadCompanyOverview();
+}
+async function loadCompanyOverview(){
+  const dept=document.getElementById('co-dept').value;
+  const month=(document.getElementById('co-month').value||'').replace('-','/');
+  const el=document.getElementById('co-table');
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    if(companyOverviewView==='attendance'){
+      const result=await api('get_company_attendance_overview',{month,dept});
+      renderCompanyAttendanceTable(result.rows||[]);
+    }else if(companyOverviewView==='leave'){
+      const result=await api('get_company_leave_overview',{month,dept});
+      renderCompanyLeaveTable(result.rows||[]);
+    }else{
+      const result=await api('get_company_leave_balance',{dept});
+      renderCompanyBalanceTable(result.rows||[]);
+    }
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+function renderCompanyAttendanceTable(rows){
+  const el=document.getElementById('co-table');
+  if(!rows.length){el.innerHTML='<div class="empty-state">無資料</div>';return;}
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+    <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
+      <th style="padding:8px 10px">姓名</th><th style="padding:8px 10px">部門</th><th style="padding:8px 10px">職稱</th>
+      <th style="padding:8px 10px">出勤天數</th><th style="padding:8px 10px">遲到次數</th><th style="padding:8px 10px">遲到分鐘</th><th style="padding:8px 10px">早退次數</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--bg)">
+      <td style="padding:8px 10px;font-weight:700">${r.name}</td><td style="padding:8px 10px">${r.dept||''}</td><td style="padding:8px 10px">${r.title||''}</td>
+      <td style="padding:8px 10px">${r.days}</td><td style="padding:8px 10px;color:${r.lateCount?'#b07d2a':'inherit'}">${r.lateCount}</td><td style="padding:8px 10px">${r.lateMins}</td><td style="padding:8px 10px;color:${r.earlyCount?'#bd898e':'inherit'}">${r.earlyCount}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+function renderCompanyLeaveTable(rows){
+  const el=document.getElementById('co-table');
+  if(!rows.length){el.innerHTML='<div class="empty-state">無資料</div>';return;}
+  const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+    <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
+      <th style="padding:8px 10px">姓名</th><th style="padding:8px 10px">部門</th><th style="padding:8px 10px">假別</th><th style="padding:8px 10px">日期</th><th style="padding:8px 10px">時數</th><th style="padding:8px 10px">狀態</th><th style="padding:8px 10px">證明</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--bg)">
+      <td style="padding:8px 10px;font-weight:700">${r.name}</td><td style="padding:8px 10px">${r.dept||''}</td><td style="padding:8px 10px">${r.type}</td>
+      <td style="padding:8px 10px">${r.start}${r.start!==r.end?' ~ '+r.end:''}</td><td style="padding:8px 10px">${r.unit||''}</td>
+      <td style="padding:8px 10px;color:${sc[r.status]||'#854F0B'};font-weight:700">${r.status}</td>
+      <td style="padding:8px 10px">${r.proofUrl?`<a href="${r.proofUrl}" target="_blank" style="color:var(--deep-blue)">📎 查看</a>`:'—'}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+function renderCompanyBalanceTable(rows){
+  const el=document.getElementById('co-table');
+  if(!rows.length){el.innerHTML='<div class="empty-state">無資料</div>';return;}
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+    <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
+      <th style="padding:8px 10px">姓名</th><th style="padding:8px 10px">部門</th>
+      <th style="padding:8px 10px">特休可休</th><th style="padding:8px 10px">特休已休</th><th style="padding:8px 10px">特休剩餘</th>
+      <th style="padding:8px 10px">病假已用(年)</th><th style="padding:8px 10px">事假已用(年)</th><th style="padding:8px 10px">生理假已用(年)</th>
+      <th style="padding:8px 10px">補休已賺</th><th style="padding:8px 10px">補休已用</th><th style="padding:8px 10px">補休剩餘</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--bg)">
+      <td style="padding:8px 10px;font-weight:700">${r.name}</td><td style="padding:8px 10px">${r.dept||''}</td>
+      <td style="padding:8px 10px">${r.specialEntitled}</td><td style="padding:8px 10px">${r.specialUsed}</td><td style="padding:8px 10px">${r.specialRemaining}</td>
+      <td style="padding:8px 10px">${r.sickUsed}</td><td style="padding:8px 10px">${r.personalUsed}</td><td style="padding:8px 10px">${r.menstrualUsed}</td>
+      <td style="padding:8px 10px">${r.compEarned}</td><td style="padding:8px 10px">${r.compUsed}</td><td style="padding:8px 10px">${r.compRemaining}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
 }
 
 async function saveEmpEditPunch(rowIdx){
@@ -3068,9 +3180,9 @@ async function loadAdminBadge(){
   if(!session||session.role<1)return;
   try{
     const [lr,pr,cr]=await Promise.all([
-      api('get_leave_requests',{pendingOnly:true}),
-      api('get_patch_requests',{pendingOnly:true}),
-      api('get_cancel_requests',{pendingOnly:true}).catch(()=>({requests:[]})),
+      api('get_leave_requests',{pendingOnly:true,adminView:true}),
+      api('get_patch_requests',{pendingOnly:true,adminView:true}),
+      api('get_cancel_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]})),
     ]);
     const otr=await api('get_overtime_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]}));
     const count=(lr.requests||[]).length+(pr.requests||[]).length+(otr.requests||[]).length+(cr.requests||[]).length;
