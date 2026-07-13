@@ -653,9 +653,10 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     </div>
     <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
       <div class="form-row-2">
-        <div><div class="form-label-sm">部門</div><select id="co-dept" class="form-select" onchange="loadCompanyOverview()"><option value="">全部部門</option></select></div>
-        <div id="co-month-row"><div class="form-label-sm">月份</div><input type="month" id="co-month" class="form-input" onchange="loadCompanyOverview()"></div>
+        <div><div class="form-label-sm">部門</div><select id="co-dept" class="form-select" onchange="onCoDeptChange()"><option value="">全部部門</option></select></div>
+        <div><div class="form-label-sm">員工</div><select id="co-eid" class="form-select" onchange="loadCompanyOverview()"><option value="">全部員工</option></select></div>
       </div>
+      <div id="co-month-row"><div class="form-label-sm">月份</div><input type="month" id="co-month" class="form-input" onchange="loadCompanyOverview()"></div>
     </div></div>
     <div class="card" style="overflow-x:auto"><div id="co-table" class="empty-state">載入中…</div></div>
   </div>
@@ -2628,18 +2629,31 @@ async function loadLeaveGrantList(){
 // ── 管理頁「總覽」：全公司打卡/請假/假別時數，可用部門篩選一次看到所有員工 ──
 let companyOverviewView='attendance';
 let companyOverviewDeptsLoaded=false;
+let companyOverviewEmps=[];
 async function initCompanyOverview(){
   if(!companyOverviewDeptsLoaded){
     try{
       const result=await api('get_employees');
-      const depts=[...new Set((result.employees||[]).map(e=>e.dept).filter(Boolean))];
+      companyOverviewEmps=result.employees||[];
+      const depts=[...new Set(companyOverviewEmps.map(e=>e.dept).filter(Boolean))];
       const sel=document.getElementById('co-dept');
       sel.innerHTML='<option value="">全部部門</option>'+depts.map(d=>`<option value="${d}">${d}</option>`).join('');
+      populateCoEidOptions();
       companyOverviewDeptsLoaded=true;
     }catch(e){}
   }
   const monthInput=document.getElementById('co-month');
   if(!monthInput.value) monthInput.value=todayKey().slice(0,7).replace('/','-');
+  loadCompanyOverview();
+}
+function populateCoEidOptions(){
+  const dept=document.getElementById('co-dept').value;
+  const sel=document.getElementById('co-eid');
+  const emps=companyOverviewEmps.filter(e=>!dept||e.dept===dept);
+  sel.innerHTML='<option value="">全部員工</option>'+emps.map(e=>`<option value="${e.eid}">${e.name}（${e.eid}）</option>`).join('');
+}
+function onCoDeptChange(){
+  populateCoEidOptions();
   loadCompanyOverview();
 }
 function switchCompanyOverview(view,btn){
@@ -2651,18 +2665,19 @@ function switchCompanyOverview(view,btn){
 }
 async function loadCompanyOverview(){
   const dept=document.getElementById('co-dept').value;
+  const eid=document.getElementById('co-eid').value;
   const month=(document.getElementById('co-month').value||'').replace('-','/');
   const el=document.getElementById('co-table');
   el.innerHTML='<div class="empty-state">載入中…</div>';
   try{
     if(companyOverviewView==='attendance'){
-      const result=await api('get_company_attendance_overview',{month,dept});
+      const result=await api('get_company_attendance_overview',{month,dept,eid});
       renderCompanyAttendanceTable(result.rows||[]);
     }else if(companyOverviewView==='leave'){
-      const result=await api('get_company_leave_overview',{month,dept});
+      const result=await api('get_company_leave_overview',{month,dept,eid});
       renderCompanyLeaveTable(result.rows||[]);
     }else{
-      const result=await api('get_company_leave_balance',{dept});
+      const result=await api('get_company_leave_balance',{dept,eid});
       renderCompanyBalanceTable(result.rows||[]);
     }
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
@@ -2670,6 +2685,23 @@ async function loadCompanyOverview(){
 function renderCompanyAttendanceTable(rows){
   const el=document.getElementById('co-table');
   if(!rows.length){el.innerHTML='<div class="empty-state">無資料</div>';return;}
+  // 選了單一員工時，改顯示逐日上下班時間明細；沒指定員工（全部/整個部門）時顯示彙總表
+  if(rows.length===1 && rows[0].dailyDetail){
+    const r=rows[0];
+    el.innerHTML=`<div style="padding:10px 10px 0;font-size:12px;color:var(--text-soft)">${r.name}（${r.eid}）· ${r.dept||''} ${r.title||''}</div>
+    <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+      <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
+        <th style="padding:8px 10px">日期</th><th style="padding:8px 10px">上班時間</th><th style="padding:8px 10px">下班時間</th><th style="padding:8px 10px">備註</th>
+      </tr></thead>
+      <tbody>${r.dailyDetail.map(d=>`<tr style="border-bottom:1px solid var(--bg)">
+        <td style="padding:8px 10px;font-weight:700">${d.date}</td>
+        <td style="padding:8px 10px;color:${d.late?'#b07d2a':'inherit'}">${d.inTime||'—'}${d.late?' 遲到':''}</td>
+        <td style="padding:8px 10px;color:${d.early?'#bd898e':'inherit'}">${d.outTime||'—'}${d.early?' 早退':''}</td>
+        <td style="padding:8px 10px;color:var(--text-soft)">${!d.inTime?'缺上班卡':!d.outTime?'缺下班卡':''}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+    return;
+  }
   el.innerHTML=`<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
     <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
       <th style="padding:8px 10px">姓名</th><th style="padding:8px 10px">部門</th><th style="padding:8px 10px">職稱</th>
