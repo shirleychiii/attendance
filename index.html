@@ -69,6 +69,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
 .chip-val.has-in{color:#9ed8be}.chip-val.has-out{color:#f0b8bc}
 /* Punch mode */
 .mode-tabs{display:flex;gap:6px;margin-bottom:10px}
+.mode-tabs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.mode-tabs-grid .mode-tab{flex:none}
 .mode-tab{flex:1;padding:9px 6px;font-size:11px;font-weight:700;font-family:inherit;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text-soft);cursor:pointer;text-align:center;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .mode-tab.active{border-color:var(--charcoal);background:var(--charcoal);color:#fff}
 /* GPS */
@@ -515,7 +517,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
     <div class="mini-badge" id="mini-badge-screen-admin"></div>
   </div>
 
-  <div class="mode-tabs">
+  <div class="mode-tabs-grid">
     <button class="mode-tab active" onclick="switchAdminSub('review',this)">🗂 審核</button>
     <button class="mode-tab" onclick="switchAdminSub('manage',this)">👥 員工</button>
     <button class="mode-tab" id="tab-companyoverview" onclick="switchAdminSub('companyoverview',this)" style="display:none">📈 總覽</button>
@@ -645,9 +647,9 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <!-- ══ 公司總覽 ══ -->
   <div id="admin-sub-companyoverview" style="display:none">
     <div class="mode-tabs">
-      <button class="mode-tab active" onclick="switchCompanyOverview('attendance',this)">🕐 打卡總覽</button>
-      <button class="mode-tab" onclick="switchCompanyOverview('leave',this)">🗓 請假總覽</button>
-      <button class="mode-tab" onclick="switchCompanyOverview('balance',this)">⏳ 假別時數總覽</button>
+      <button class="mode-tab active" onclick="switchCompanyOverview('attendance',this)">🕐 打卡時數</button>
+      <button class="mode-tab" onclick="switchCompanyOverview('leave',this)">🗓 請假時數</button>
+      <button class="mode-tab" onclick="switchCompanyOverview('balance',this)">⏳ 假別時數</button>
     </div>
     <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
       <div class="form-row-2">
@@ -655,7 +657,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
         <div id="co-month-row"><div class="form-label-sm">月份</div><input type="month" id="co-month" class="form-input" onchange="loadCompanyOverview()"></div>
       </div>
     </div></div>
-    <div id="co-table-wrap" style="overflow-x:auto"><div class="card"><div id="co-table" class="empty-state">載入中…</div></div></div>
+    <div class="card" style="overflow-x:auto"><div id="co-table" class="empty-state">載入中…</div></div>
   </div>
 
   <!-- ══ 特殊假別授權 ══ -->
@@ -2668,14 +2670,14 @@ async function loadCompanyOverview(){
 function renderCompanyAttendanceTable(rows){
   const el=document.getElementById('co-table');
   if(!rows.length){el.innerHTML='<div class="empty-state">無資料</div>';return;}
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+  el.innerHTML=`<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
     <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
       <th style="padding:8px 10px">姓名</th><th style="padding:8px 10px">部門</th><th style="padding:8px 10px">職稱</th>
-      <th style="padding:8px 10px">出勤天數</th><th style="padding:8px 10px">遲到次數</th><th style="padding:8px 10px">遲到分鐘</th><th style="padding:8px 10px">早退次數</th>
+      <th style="padding:8px 10px">出勤天數</th><th style="padding:8px 10px">打卡時數</th><th style="padding:8px 10px">遲到次數</th><th style="padding:8px 10px">遲到分鐘</th><th style="padding:8px 10px">早退次數</th>
     </tr></thead>
     <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--bg)">
       <td style="padding:8px 10px;font-weight:700">${r.name}</td><td style="padding:8px 10px">${r.dept||''}</td><td style="padding:8px 10px">${r.title||''}</td>
-      <td style="padding:8px 10px">${r.days}</td><td style="padding:8px 10px;color:${r.lateCount?'#b07d2a':'inherit'}">${r.lateCount}</td><td style="padding:8px 10px">${r.lateMins}</td><td style="padding:8px 10px;color:${r.earlyCount?'#bd898e':'inherit'}">${r.earlyCount}</td>
+      <td style="padding:8px 10px">${r.days}</td><td style="padding:8px 10px">${r.hoursWorked}</td><td style="padding:8px 10px;color:${r.lateCount?'#b07d2a':'inherit'}">${r.lateCount}</td><td style="padding:8px 10px">${r.lateMins}</td><td style="padding:8px 10px;color:${r.earlyCount?'#bd898e':'inherit'}">${r.earlyCount}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 }
@@ -2683,7 +2685,7 @@ function renderCompanyLeaveTable(rows){
   const el=document.getElementById('co-table');
   if(!rows.length){el.innerHTML='<div class="empty-state">無資料</div>';return;}
   const sc={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+  el.innerHTML=`<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
     <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
       <th style="padding:8px 10px">姓名</th><th style="padding:8px 10px">部門</th><th style="padding:8px 10px">假別</th><th style="padding:8px 10px">日期</th><th style="padding:8px 10px">時數</th><th style="padding:8px 10px">狀態</th><th style="padding:8px 10px">證明</th>
     </tr></thead>
@@ -2698,7 +2700,7 @@ function renderCompanyLeaveTable(rows){
 function renderCompanyBalanceTable(rows){
   const el=document.getElementById('co-table');
   if(!rows.length){el.innerHTML='<div class="empty-state">無資料</div>';return;}
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+  el.innerHTML=`<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
     <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
       <th style="padding:8px 10px">姓名</th><th style="padding:8px 10px">部門</th>
       <th style="padding:8px 10px">特休可休</th><th style="padding:8px 10px">特休已休</th><th style="padding:8px 10px">特休剩餘</th>
