@@ -879,8 +879,8 @@ function updateGpsBar(){
   if(currentMode==='辦公室'){
     // 刻意不顯示實際距離／容許範圍公尺數，避免員工摸索打卡邊界
     const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
-    if(dist<=gpsAllowedRadius()) setGpsBar('ok','📍 已在辦公室範圍內，可以打卡');
-    else setGpsBar('err','❌ 不在辦公室範圍內，無法打卡');
+    if(dist<=gpsAllowedRadius()) setGpsBar('ok','已在辦公室範圍內，可以打卡');
+    else setGpsBar('err','不在辦公室範圍內，無法打卡');
   } else {
     setGpsBar('ok',`已定位（精確度 ±${currentGPS.acc} 公尺）`);
   }
