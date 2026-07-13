@@ -869,12 +869,18 @@ function setGpsBar(type,msg){
   document.getElementById('gps-icon').textContent=icons[type]||'📡';
   document.getElementById('gps-text').textContent=msg;
 }
+// 容許範圍＝圍欄半徑＋手機回報的定位精確度：室內訊號差、手機自己都不確定準不準時自動放寬，
+// 訊號好（精確度數字小）的時候容許範圍就跟圍欄半徑差不多，不會整體變寬鬆
+function gpsAllowedRadius(){
+  return gpsConfig.radius + (currentGPS?.acc || 0);
+}
 function updateGpsBar(){
   if(!currentGPS){setGpsBar('loading','定位中…');return;}
   if(currentMode==='辦公室'){
     const dist=Math.round(gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng));
-    if(dist<=gpsConfig.radius) setGpsBar('ok',`距辦公室 ${dist} 公尺 ✓ 可打卡`);
-    else setGpsBar('err',`距辦公室 ${dist} 公尺（超出 ${gpsConfig.radius} 公尺範圍）`);
+    const allowed=gpsAllowedRadius();
+    if(dist<=allowed) setGpsBar('ok',`距辦公室 ${dist} 公尺 ✓ 可打卡（定位精確度 ±${currentGPS.acc} 公尺）`);
+    else setGpsBar('err',`距辦公室 ${dist} 公尺（超出容許範圍 ${allowed} 公尺，含定位精確度 ±${currentGPS.acc} 公尺）`);
   } else {
     setGpsBar('ok',`已定位（精確度 ±${currentGPS.acc} 公尺）`);
   }
@@ -1072,7 +1078,7 @@ async function doPunch(type){
   }
   if(currentMode==='辦公室'&&currentGPS){
     const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
-    if(dist>gpsConfig.radius){showToast(`⚠ 您距辦公室 ${Math.round(dist)} 公尺，超出打卡範圍`);return;}
+    if(dist>gpsAllowedRadius()){showToast(`⚠ 您距辦公室 ${Math.round(dist)} 公尺，超出打卡範圍`);return;}
   }
   if(currentMode==='辦公室'&&!currentGPS){showToast('⚠ 定位尚未完成，請稍後再試');return;}
   const now=new Date();
