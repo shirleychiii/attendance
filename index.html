@@ -713,6 +713,11 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
           <div><div class="form-label-sm">經度</div><input type="number" id="cfg-lng" class="form-input" step="0.0001"></div>
         </div>
         <div><div class="form-label-sm">圍欄半徑（公尺）</div><input type="number" id="cfg-radius" class="form-input"></div>
+        <div>
+          <div class="form-label-sm">辦公室網路公網IP（選填）</div>
+          <input type="text" id="cfg-office-ip" class="form-input" placeholder="例如 123.456.78.90">
+          <div style="font-size:11px;color:var(--text-soft);margin-top:5px">填了之後，只要員工的裝置偵測到目前公網IP跟這個一致，就算GPS定位不準也可以打卡（適合GPS室內訊號不穩定時當備援）。可以請同事在辦公室WiFi下搜尋「my ip」查詢，只是這個IP如果不是固定制，之後可能會變動需要重新填寫。</div>
+        </div>
         <button class="btn-primary" onclick="saveGpsConfig()">儲存設定</button>
         <div class="form-msg" id="cfg-msg"></div>
       </div></div>
@@ -831,7 +836,17 @@ function clearSession(){ session=null; sessionStorage.removeItem('hs_session'); 
 
 // ── GPS ────────────────────────────────────────────────────────
 let currentGPS=null, gpsWatcher=null, currentMode='辦公室';
-let gpsConfig={ lat:25.0588, lng:121.5395, radius:100 };
+let gpsConfig={ lat:25.0588, lng:121.5395, radius:100, officeIp:'' };
+let detectedPublicIp=null;
+// 瀏覽器沒有辦法讀取「連上哪個WiFi」，只能退而求其次用公網IP比對（同一個辦公室網路對外通常是同一個IP）
+// 這裡呼叫一個公開、免費、不需要金鑰的IP查詢服務；查詢失敗（離線、被瀏覽器封鎖等）就當作沒有這個備援，不影響原本GPS判斷
+async function detectPublicIp(){
+  try{
+    const res=await fetch('https://api.ipify.org?format=json');
+    const data=await res.json();
+    detectedPublicIp=data.ip||null;
+  }catch(e){ detectedPublicIp=null; }
+}
 
 // ── 工具 ───────────────────────────────────────────────────────
 const f2=n=>String(n).padStart(2,'0');
@@ -902,17 +917,21 @@ function gpsAllowedRadius(){
   return gpsConfig.radius + (currentGPS?.acc || 0);
 }
 function updateGpsBar(){
-  if(!currentGPS){setGpsBar('loading','定位中…');return;}
   if(currentMode==='辦公室'){
+    // 連上公司網路的話，不用等GPS定位完成就能直接放行（GPS室內訊號不穩時的備援）
+    if(isOnOfficeNetwork()){ setGpsBar('ok','已連上公司網路，可以打卡'); return; }
+    if(!currentGPS){ setGpsBar('loading','定位中…'); return; }
     // 刻意不顯示實際距離／容許範圍公尺數，避免員工摸索打卡邊界
     const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
     if(dist<=gpsAllowedRadius()) setGpsBar('ok','已在辦公室範圍內，可以打卡');
     else setGpsBar('err','不在辦公室範圍內，無法打卡');
   } else {
+    if(!currentGPS){ setGpsBar('loading','定位中…'); return; }
     setGpsBar('ok',`已定位（精確度 ±${currentGPS.acc} 公尺）`);
   }
 }
 function startGPS(){
+  detectPublicIp().then(updateGpsBar);
   if(!navigator.geolocation){setGpsBar('warn','此裝置不支援定位，仍可打卡');return;}
   setGpsBar('loading','定位中…');
   gpsWatcher=navigator.geolocation.watchPosition(
@@ -920,6 +939,9 @@ function startGPS(){
     err=>{currentGPS=null;if(err.code===1)setGpsBar('warn','請允許定位權限');else setGpsBar('warn','無法取得位置，仍可打卡');},
     {enableHighAccuracy:true,maximumAge:10000,timeout:15000}
   );
+}
+function isOnOfficeNetwork(){
+  return !!(gpsConfig.officeIp && detectedPublicIp && gpsConfig.officeIp===detectedPublicIp);
 }
 function stopGPS(){if(gpsWatcher!=null){navigator.geolocation.clearWatch(gpsWatcher);gpsWatcher=null;}}
 function selectMode(mode,btn){
@@ -1132,11 +1154,14 @@ async function doPunch(type){
       showToast(`⚠ 超過打卡時間，如需加班請先申請`);return;
     }
   }
-  if(currentMode==='辦公室'&&currentGPS){
-    const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
-    if(dist>gpsAllowedRadius()){showToast('⚠ 不在辦公室範圍內，無法打卡');return;}
+  if(currentMode==='辦公室'&&!isOnOfficeNetwork()){
+    if(currentGPS){
+      const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
+      if(dist>gpsAllowedRadius()){showToast('⚠ 不在辦公室範圍內，無法打卡');return;}
+    } else {
+      showToast('⚠ 定位尚未完成，請稍後再試');return;
+    }
   }
-  if(currentMode==='辦公室'&&!currentGPS){showToast('⚠ 定位尚未完成，請稍後再試');return;}
   const now=new Date();
   const btn=type==='in'?document.getElementById('btn-clock-in'):document.getElementById('btn-clock-out');
   btn.innerHTML='<span class="punch-icon">⏳</span><span>打卡中…</span>';
@@ -2131,14 +2156,17 @@ async function loadAdminGpsConfig(){
     document.getElementById('cfg-lat').value  = cfg['辦公室緯度'] || '25.0588';
     document.getElementById('cfg-lng').value  = cfg['辦公室經度'] || '121.5395';
     document.getElementById('cfg-radius').value = cfg['圍欄半徑(m)'] || '100';
+    document.getElementById('cfg-office-ip').value = cfg['辦公室網路公網IP'] || '';
     gpsConfig.lat = parseFloat(cfg['辦公室緯度'] || '25.0588');
     gpsConfig.lng = parseFloat(cfg['辦公室經度'] || '121.5395');
     gpsConfig.radius = parseInt(cfg['圍欄半徑(m)'] || '100');
+    gpsConfig.officeIp = cfg['辦公室網路公網IP'] || '';
   } catch(e) {
     document.getElementById('cfg-addr').value = gpsConfig.addr || '台北市中山區民生東路二段151號8樓';
     document.getElementById('cfg-lat').value  = gpsConfig.lat;
     document.getElementById('cfg-lng').value  = gpsConfig.lng;
     document.getElementById('cfg-radius').value = gpsConfig.radius;
+    document.getElementById('cfg-office-ip').value = gpsConfig.officeIp;
   }
 }
 
@@ -2825,12 +2853,14 @@ async function saveGpsConfig(){
     '辦公室緯度':document.getElementById('cfg-lat').value,
     '辦公室經度':document.getElementById('cfg-lng').value,
     '圍欄半徑(m)':document.getElementById('cfg-radius').value,
+    '辦公室網路公網IP':document.getElementById('cfg-office-ip').value.trim(),
   };
   try{
     await api('update_settings',{settings});
     gpsConfig.lat=parseFloat(settings['辦公室緯度']);
     gpsConfig.lng=parseFloat(settings['辦公室經度']);
     gpsConfig.radius=parseInt(settings['圍欄半徑(m)']);
+    gpsConfig.officeIp=settings['辦公室網路公網IP'];
     document.getElementById('cfg-msg').textContent='✓ 設定已儲存'; document.getElementById('cfg-msg').className='form-msg ok';
     showToast('打卡地點設定已更新'); updateGpsBar();
   }catch(e){ document.getElementById('cfg-msg').textContent='⚠ '+e.message; document.getElementById('cfg-msg').className='form-msg err'; }
