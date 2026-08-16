@@ -168,7 +168,8 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 .bottom-nav{width:100%;max-width:430px;position:fixed;bottom:0;left:50%;transform:translateX(-50%);background:var(--surface);border-top:1px solid var(--border);display:none;align-items:center;justify-content:space-around;padding:10px 0 max(10px,env(safe-area-inset-bottom));z-index:100}
 .bottom-nav.visible{display:flex}
 .nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 14px;cursor:pointer;border:none;background:none;font-family:inherit;-webkit-tap-highlight-color:transparent;position:relative}
-.nav-icon{font-size:19px;line-height:1}
+.nav-icon{display:flex;align-items:center;justify-content:center;color:var(--text-soft)}
+.nav-btn.active .nav-icon{color:var(--charcoal)}
 .nav-label{font-size:10px;font-weight:500;color:var(--text-soft)}
 .nav-btn.active .nav-label{color:var(--charcoal);font-weight:800}
 .nav-badge{position:absolute;top:2px;right:6px;background:var(--rose);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 4px}
@@ -204,6 +205,13 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 .drawer-panel{background:var(--surface);width:100%;max-width:430px;max-height:88vh;overflow-y:auto;border-radius:var(--radius-xl) var(--radius-xl) 0 0;padding:24px 20px max(24px,env(safe-area-inset-bottom));animation:slideUp .25s cubic-bezier(.34,1.2,.64,1)}
 .drawer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .timeline-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bg)}
+/* Permission Preview：常駐列，故意用最顯眼的warning色系，不能讓管理員忘記自己在模擬身分 */
+.preview-bar{width:100%;max-width:430px;background:var(--amber);color:#fff;border-radius:var(--radius-sm);padding:9px 14px;display:none;align-items:center;justify-content:space-between;gap:10px;font-size:12px;font-weight:600}
+.preview-bar.visible{display:flex}
+.preview-bar .pb-label{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preview-bar .pb-exit{flex-shrink:0;background:rgba(255,255,255,.25);border:none;color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit}
+@media (min-width:768px){ .preview-bar{max-width:600px} }
+@media (min-width:1200px){ .preview-bar{max-width:1200px} }
 .timeline-row:last-child{border-bottom:none}
 .result-sheet::before{content:'';position:absolute;width:160px;height:160px;border-radius:50%;background:var(--brand-blue);opacity:.07;top:-60px;right:-40px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -227,6 +235,71 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 .mini-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:auto}
 /* Toast */
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--charcoal);color:#fff;font-size:12px;font-weight:600;padding:10px 18px;border-radius:99px;z-index:300;white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none}
+
+/* ══ Adaptive shell ══════════════════════════════════════════════════
+   Same markup, same data/actions at every width — only the CSS changes.
+   <768px: mobile (bottom-nav, single column, current design, unchanged).
+   768–1199px: tablet (still bottom-nav, just a wider centered column).
+   >=1200px: desktop (bottom-nav repositions into a left sidebar, top
+   toolbar stays as header, content uses real desktop width). No JS
+   branches on viewport for THIS part — layout only, via media queries. */
+@media (min-width:768px){
+  .header,.screen{max-width:600px}
+  .bottom-nav{max-width:600px}
+}
+@media (min-width:1200px){
+  body{align-items:stretch;padding-left:240px}
+  /* Content width tiers — main area can be wide, but page content itself centers within a
+     tier appropriate to what it actually is. Default (.screen) is the "normal form/detail"
+     tier; wide data/table screens and module sub-pages opt into .dw-wide, reading-oriented
+     ones into .dw-reading. Nothing should just inherit 100% of the sidebar-complement width. */
+  .header,.screen{max-width:1040px;width:100%;margin:0 auto}
+  .screen{padding:0 32px 48px}
+  .header{padding:28px 32px 18px}
+  .screen.dw-wide{max-width:1280px}
+  .screen.dw-reading{max-width:840px}
+  #admin-sub-directory,#admin-sub-companyoverview,#admin-sub-reports,#admin-sub-latemanage{max-width:1280px;margin:0 auto}
+  #admin-sub-manage,#admin-sub-settings,#admin-sub-leavegrant,#admin-sub-review{max-width:1040px;margin:0 auto}
+  #toast{left:calc(240px + (100% - 240px)/2)}
+  .drawer-overlay{align-items:stretch;justify-content:flex-end}
+  .drawer-panel{max-width:480px;max-height:100vh;height:100vh;border-radius:0;animation:slideInRight .2s ease-out}
+  @keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
+  /* Desktop不再共用mobile的.bottom-nav／.mode-tabs-grid當導覽——那是「把mobile互動搬到desktop」。
+     .bottom-nav在desktop完全隱藏，改用獨立的.desktop-sidebar：單一約240px、依capability分組
+     （工作／團隊／人事／財務／系統），組內用expand/collapse，不再疊加第二條200px子導覽欄。
+     Mobile的.bottom-nav＋.mode-tabs-grid（2nd-level選單）維持完全不動，兩邊互不共用layout。 */
+  .bottom-nav{display:none !important}
+  .mode-tabs-grid{display:none}
+  .desktop-sidebar{display:none;position:fixed;left:0;top:0;bottom:0;width:240px;
+    background:var(--surface);border-right:1px solid var(--border);padding:28px 14px;
+    flex-direction:column;gap:0;overflow-y:auto;z-index:100}
+  .desktop-sidebar.visible{display:flex}
+  .ds-group+.ds-group{margin-top:14px;padding-top:14px;border-top:1px solid var(--bg)}
+  .ds-group-title{display:flex;align-items:center;justify-content:space-between;gap:6px;
+    font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-soft);
+    padding:6px 10px;margin-bottom:2px;border:none;background:none;font-family:inherit;
+    cursor:pointer;width:100%;text-align:left}
+  .ds-group.always .ds-group-title{cursor:default}
+  .ds-item{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:var(--radius-sm);
+    font-size:13px;font-weight:500;color:var(--text-soft);cursor:pointer;border:none;background:none;
+    font-family:inherit;text-align:left;width:100%}
+  .ds-item:hover{background:var(--bg)}
+  .ds-item.active{background:var(--charcoal);color:#fff}
+  /* Desktop的Permission Preview提示：故意做成小的system notice，不是mobile那種滿版警示色bar——
+     常駐提醒還是要在，但視覺份量不能蓋過頁面本身內容。 */
+  .preview-notice{display:none;align-items:center;gap:10px;max-width:1040px;margin:0 auto 16px;
+    padding:7px 8px 7px 12px;background:var(--surface);border:1px solid var(--border);
+    border-left:3px solid var(--amber);border-radius:var(--radius-sm);font-size:12px}
+  .preview-notice.visible{display:flex}
+  .preview-notice .pn-icon{color:var(--amber);flex-shrink:0;display:flex}
+  .preview-notice .pn-who{font-weight:700;color:var(--charcoal);white-space:nowrap}
+  .preview-notice .pn-role{color:var(--text-soft);white-space:nowrap}
+  .preview-notice .pn-sep{color:var(--border)}
+  .preview-notice .pn-actions{margin-left:auto;display:flex;gap:6px;flex-shrink:0}
+  .preview-notice button{font-size:11px;font-weight:700;padding:5px 10px;border-radius:var(--radius-sm);
+    cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--bg);color:var(--text-soft)}
+  .preview-notice button.pn-exit{background:var(--charcoal);color:#fff;border-color:var(--charcoal)}
+}
 </style>
 </head>
 <body>
@@ -240,9 +313,12 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="date-chip" id="header-date"></div>
+    <button id="header-viewas-btn" onclick="openPreviewPicker()" class="action-btn" style="display:none;font-size:11px;font-weight:700;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-soft);cursor:pointer;font-family:inherit"><span id="icon-viewas"></span> View as</button>
     <button id="header-logout-btn" onclick="doLogout()" style="display:none;font-size:11px;font-weight:700;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-soft);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">登出</button>
   </div>
 </div>
+
+<div id="preview-bar-root"></div>
 
 <!-- ══ 登入 ══ -->
 <div class="screen active" id="screen-login">
@@ -260,26 +336,24 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 <!-- ══ 打卡 ══ -->
 <div class="screen" id="screen-punch">
   <div class="first-login-banner" id="first-login-banner">
-    ⚠️ 您使用的是預設密碼，請前往「個人」頁籤立即修改密碼，避免他人代打卡。
+    <span id="icon-banner-firstlogin"></span> 您使用的是預設密碼，請前往「個人」頁籤立即修改密碼，避免他人代打卡。
   </div>
   <div class="first-login-banner" id="payroll-reminder-banner" style="display:none;background:var(--blue-lo);color:var(--deep-blue);cursor:pointer" onclick="goToMyPayroll()">
-    📄 <span id="payroll-reminder-text"></span>（點擊前往確認）
+    <span id="icon-banner-payroll"></span> <span id="payroll-reminder-text"></span>（點擊前往確認）
   </div>
   <div class="first-login-banner" id="sick-proof-banner" style="display:none;background:var(--amber-lo);color:var(--amber);cursor:pointer" onclick="document.querySelectorAll('.nav-btn')[2].click()">
-    📎 <span id="sick-proof-text"></span>（點擊前往補傳）
+    <span id="icon-banner-sickproof"></span> <span id="sick-proof-text"></span>（點擊前往補傳）
   </div>
-  <div class="first-login-banner" id="admin-pending-banner" style="display:none;background:var(--amber-lo);color:var(--amber);cursor:pointer" onclick="document.getElementById('nav-admin').click()">
-    🔔 <span id="admin-pending-text"></span>（點擊前往審核）
-  </div>
+  <!-- 待審核筆數不再用大型banner佔用打卡首頁主要畫面，只保留下方導覽列「管理」icon上的
+       compact badge（見admin-badge／loadAdminBadge()）——那才是任務中心的進入點。 -->
   <div class="first-login-banner" id="late-notice-banner" style="display:none;background:var(--rose-lo);color:var(--rose);cursor:pointer" onclick="toggleLateNoticeList()">
-    ⏰ <span id="late-notice-text"></span>（點擊查看詳情）
+    <span id="icon-banner-latenotice"></span> <span id="late-notice-text"></span>（點擊查看詳情）
   </div>
   <div class="card" id="late-notice-list-card" style="display:none"><div id="late-notice-list"></div></div>
-  <div class="first-login-banner" id="batch-trigger-overdue-banner" style="display:none;background:var(--rose-lo);color:var(--rose);cursor:pointer" onclick="document.getElementById('nav-admin').click();switchAdminSub('latemanage',document.getElementById('tab-latemanage'))">
-    ⚠️ 遲到批次trigger已超過一個工作日沒有成功執行，請檢查Apps Script的觸發條件設定（點擊前往檢查）
-  </div>
+  <!-- Trigger／ScriptApp授權這類系統基礎設施警告只該出現在管理員的System Health（設定／遲到管理
+       頁籤裡的「遲到批次trigger狀態」卡片已經有更完整的說明與修法），不佔用打卡首頁的主要畫面。 -->
   <div class="first-login-banner" id="hr-bootstrap-banner" style="display:none;background:var(--blue-lo);color:var(--deep-blue);cursor:pointer" onclick="document.getElementById('nav-admin').click();switchAdminSub('settings',document.getElementById('tab-settings'))">
-    🔑 系統目前沒有任何HR最高管理員，請前往設定頁完成首次設定（點擊前往）
+    <span id="icon-banner-hrbootstrap"></span> 系統目前沒有任何HR最高管理員，請前往設定頁完成首次設定（點擊前往）
   </div>
   <div class="profile-bar">
     <div class="avatar"><span id="av-txt"></span><div class="role-dot" id="av-dot"></div></div>
@@ -303,9 +377,9 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
     <div>
       <div class="form-label-sm">打卡模式</div>
       <div class="mode-tabs">
-        <button class="mode-tab active" onclick="selectMode('辦公室',this)">🏢 辦公室</button>
-        <button class="mode-tab" onclick="selectMode('居家辦公',this)">🏠 居家辦公</button>
-        <button class="mode-tab" onclick="selectMode('公出',this)">🚗 公出</button>
+        <button class="mode-tab active" onclick="selectMode('辦公室',this)"><span id="icon-mode-office"></span> 辦公室</button>
+        <button class="mode-tab" onclick="selectMode('居家辦公',this)"><span id="icon-mode-home"></span> 居家辦公</button>
+        <button class="mode-tab" onclick="selectMode('公出',this)"><span id="icon-mode-field"></span> 公出</button>
       </div>
     </div>
     <div class="gps-bar loading" id="gps-bar"><span id="gps-icon">📡</span><span id="gps-text">定位中…</span></div>
@@ -577,14 +651,31 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
   </div>
 
   <div class="mode-tabs-grid">
-    <button class="mode-tab active" onclick="switchAdminSub('review',this)">🗂 審核</button>
-    <button class="mode-tab" onclick="switchAdminSub('manage',this)">👥 員工</button>
-    <button class="mode-tab" id="tab-directory" onclick="switchAdminSub('directory',this)" style="display:none">🗂 員工總覽</button>
-    <button class="mode-tab" id="tab-companyoverview" onclick="switchAdminSub('companyoverview',this)" style="display:none">📈 總覽</button>
-    <button class="mode-tab" id="tab-leavegrant" onclick="switchAdminSub('leavegrant',this)" style="display:none">🎁 假別授權</button>
-    <button class="mode-tab" id="tab-latemanage" onclick="switchAdminSub('latemanage',this)" style="display:none">⏰ 遲到管理</button>
-    <button class="mode-tab" id="tab-settings" onclick="switchAdminSub('settings',this)">⚙️ 設定</button>
-    <button class="mode-tab" onclick="switchAdminSub('reports',this)">📊 報表</button>
+    <button class="mode-tab" data-sub="hroverview" onclick="switchAdminSub('hroverview',this)"><span id="icon-tab-hroverview"></span> 人事總覽</button>
+    <button class="mode-tab active" data-sub="review" onclick="switchAdminSub('review',this)"><span id="icon-tab-review"></span> 審核中心</button>
+    <button class="mode-tab" data-sub="manage" onclick="switchAdminSub('manage',this)"><span id="icon-tab-manage"></span> 員工資料</button>
+    <button class="mode-tab" data-sub="directory" id="tab-directory" onclick="switchAdminSub('directory',this)" style="display:none"><span id="icon-tab-directory"></span> 員工總覽</button>
+    <button class="mode-tab" data-sub="companyoverview" id="tab-companyoverview" onclick="switchAdminSub('companyoverview',this)" style="display:none"><span id="icon-tab-companyoverview"></span> 出勤管理</button>
+    <button class="mode-tab" data-sub="leavegrant" id="tab-leavegrant" onclick="switchAdminSub('leavegrant',this)" style="display:none"><span id="icon-tab-leavegrant"></span> 假別授權</button>
+    <button class="mode-tab" data-sub="latemanage" id="tab-latemanage" onclick="switchAdminSub('latemanage',this)" style="display:none"><span id="icon-tab-latemanage"></span> 遲到與PIP</button>
+    <button class="mode-tab" data-sub="settings" id="tab-settings" onclick="switchAdminSub('settings',this)"><span id="icon-tab-settings"></span> 設定</button>
+    <button class="mode-tab" data-sub="reports" onclick="switchAdminSub('reports',this)"><span id="icon-tab-reports"></span> 人事報表</button>
+  </div>
+
+  <!-- ══ 人事總覽（人事模組landing頁，小型摘要，不是審核中心的複製） ══ -->
+  <div id="admin-sub-hroverview" style="display:none">
+    <div class="section-label">人事總覽</div>
+    <div class="stat-row" id="hr-overview-stats">
+      <div class="stat-tile"><div class="stat-label">在職人數</div><div class="stat-value">—</div></div>
+      <div class="stat-tile"><div class="stat-label">待審核項目</div><div class="stat-value">—</div></div>
+      <div class="stat-tile"><div class="stat-label">待處理PIP案件</div><div class="stat-value">—</div></div>
+    </div>
+    <div class="meta-text" style="margin-top:16px">快速前往</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+      <button class="action-btn btn-secondary" style="width:auto;padding:9px 14px" onclick="switchAdminSub('review',document.querySelector('[data-sub=review]'))">審核中心</button>
+      <button class="action-btn btn-secondary" style="width:auto;padding:9px 14px" onclick="switchAdminSub('directory',document.querySelector('[data-sub=directory]'))">員工總覽</button>
+      <button class="action-btn btn-secondary" style="width:auto;padding:9px 14px" onclick="switchAdminSub('latemanage',document.querySelector('[data-sub=latemanage]'))">遲到與PIP</button>
+    </div>
   </div>
 
   <!-- ══ 審核中心 ══ -->
@@ -717,17 +808,18 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
   <div id="admin-sub-directory" style="display:none">
     <div class="section-label">員工總覽</div>
     <div class="card"><div class="card-inner" style="font-size:11px;color:var(--text-soft);line-height:1.6">
-這裡顯示所有員工，包含已經正式離職的歷史員工（狀態徽章會顯示待到職／在職中／留停中／離職中／已離職）。留停／離職都要用下面的專用按鈕辦理，才會同時留下正確的歷史紀錄；上面「員工」頁籤的狀態欄位只用來修正明顯的資料誤植，不要拿來辦理留停或離職。
+預設只顯示在職員工；已離職的歷史員工要切到「已離職」或「全部」才看得到，資料完全保留、不會消失。留停／離職都要用下面的專用按鈕辦理，才會同時留下正確的歷史紀錄；上面「員工」頁籤的狀態欄位只用來修正明顯的資料誤植，不要拿來辦理留停或離職。
     </div></div>
+    <div class="mode-tabs" id="emp-directory-filter-tabs" style="margin-bottom:12px"></div>
     <div class="card"><div id="emp-directory-list"><div class="empty-state">載入中…</div></div></div>
   </div>
 
   <!-- ══ 公司總覽 ══ -->
   <div id="admin-sub-companyoverview" style="display:none">
     <div class="mode-tabs">
-      <button class="mode-tab active" onclick="switchCompanyOverview('attendance',this)">🕐 打卡時數</button>
-      <button class="mode-tab" onclick="switchCompanyOverview('leave',this)">🗓 請假時數</button>
-      <button class="mode-tab" onclick="switchCompanyOverview('balance',this)">⏳ 假別時數</button>
+      <button class="mode-tab active" onclick="switchCompanyOverview('attendance',this)"><span id="icon-co-attendance"></span> 打卡時數</button>
+      <button class="mode-tab" onclick="switchCompanyOverview('leave',this)"><span id="icon-co-leave"></span> 請假時數</button>
+      <button class="mode-tab" onclick="switchCompanyOverview('balance',this)"><span id="icon-co-balance"></span> 假別時數</button>
     </div>
     <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
       <div class="form-row-2">
@@ -857,8 +949,13 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 
   <!-- ══ 系統設定 ══ -->
   <div id="admin-sub-settings" style="display:none">
-    <div class="section-label">重設員工密碼</div>
-    <div class="card"><div id="admin-reset-pw"></div></div>
+    <!-- 重設別人的密碼是帳號接管等級的能力，只給Highest Admin（見Code.gs reset_password的
+         Legacy Authorization Inventory註解）——這裡跟後端一致，不是只讓後端擋、前端還留著
+         一個對其他角色來說永遠失敗的按鈕。 -->
+    <div id="reset-pw-section" style="display:none">
+      <div class="section-label">重設員工密碼</div>
+      <div class="card"><div id="admin-reset-pw"></div></div>
+    </div>
     <div id="super-admin-section" style="display:none">
       <div class="section-label" id="hr-bootstrap-label" style="display:none">首次設定HR最高管理員</div>
       <div class="card" id="hr-bootstrap-card" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
@@ -960,14 +1057,33 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 
   <!-- ══ 報表匯出 ══ -->
   <div id="admin-sub-reports" style="display:none">
-    <div class="section-label">每月報表匯出</div>
-    <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+    <div class="section-label">人事與出勤報表</div>
+    <div class="card"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
       <div><div class="form-label-sm">報表月份</div><input type="month" id="report-month" class="form-input"></div>
-      <button class="btn-secondary" onclick="startPdfReview()">📄 產生出勤考核 PDF</button>
-      <button class="btn-secondary" onclick="exportLeaveExcel()">📊 匯出請假紀錄 Excel（f2）</button>
-      <button class="btn-secondary" id="btn-export-roster" onclick="exportRosterExcel()" style="display:none">🧾 匯出員工名冊（f1 用）</button>
-      <button class="btn-secondary" id="btn-export-payroll" onclick="exportPayrollPdf()" style="display:none">💰 產生薪資明細表 PDF</button>
-      <div class="form-msg" id="report-msg"></div>
+    </div></div>
+    <!-- Desktop：真正的report center表格（報表名稱｜格式｜狀態｜操作），不是手機版按鈕拉寬 -->
+    <div class="card dw-wide" id="reports-desktop-table" style="display:none;overflow-x:auto"><table class="data-table">
+      <thead><tr><th>報表名稱</th><th>格式</th><th>狀態／最後產生</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>出勤考核表</td><td><span class="status-pill accent">PDF</span></td><td class="meta-text">—</td><td style="text-align:right"><button class="action-btn btn-secondary" style="width:auto;padding:7px 14px" onclick="startPdfReview()">產生</button></td></tr>
+        <tr><td>請假紀錄（f2）</td><td><span class="status-pill success">Excel</span></td><td class="meta-text">—</td><td style="text-align:right"><button class="action-btn btn-secondary" style="width:auto;padding:7px 14px" onclick="exportLeaveExcel()">匯出</button></td></tr>
+        <tr id="report-row-roster" style="display:none"><td>員工名冊（f1）</td><td><span class="status-pill success">Excel</span></td><td class="meta-text">—</td><td style="text-align:right"><button class="action-btn btn-secondary" style="width:auto;padding:7px 14px" onclick="exportRosterExcel()">匯出</button></td></tr>
+      </tbody>
+    </table></div>
+    <!-- Finance section只在hasFinanceAccess時出現，跟人事/出勤報表分開一個table -->
+    <div class="card dw-wide" id="reports-desktop-finance-table" style="display:none;overflow-x:auto;margin-top:12px"><table class="data-table">
+      <thead><tr><th>財務報表</th><th>格式</th><th>狀態／最後產生</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>薪資明細表</td><td><span class="status-pill accent">PDF</span></td><td class="meta-text">—</td><td style="text-align:right"><button class="action-btn btn-secondary" style="width:auto;padding:7px 14px" onclick="exportPayrollPdf()">產生</button></td></tr>
+      </tbody>
+    </table></div>
+    <div class="form-msg" id="report-msg"></div>
+    <!-- Mobile：維持原本的stacked action cards -->
+    <div class="card" id="reports-mobile-actions"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
+      <button class="btn-secondary" onclick="startPdfReview()"><span id="icon-report-pdf"></span> 產生出勤考核 PDF</button>
+      <button class="btn-secondary" onclick="exportLeaveExcel()"><span id="icon-report-leave"></span> 匯出請假紀錄 Excel（f2）</button>
+      <button class="btn-secondary" id="btn-export-roster" onclick="exportRosterExcel()" style="display:none"><span id="icon-report-roster"></span> 匯出員工名冊（f1 用）</button>
+      <button class="btn-secondary" id="btn-export-payroll" onclick="exportPayrollPdf()" style="display:none"><span id="icon-report-payroll"></span> 產生薪資明細表 PDF</button>
     </div></div>
     <div class="card" id="pdf-review-panel" style="display:none">
       <div class="card-inner" style="display:flex;flex-direction:column;gap:8px">
@@ -984,8 +1100,8 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 
     <div class="section-label" id="payroll-publish-label" style="display:none">薪資單發布與簽核進度</div>
     <div class="card" id="payroll-publish-card" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:12px">
-      <button class="btn-primary" onclick="publishPayroll()">📤 發布本月薪資單</button>
-      <button class="btn-secondary" onclick="retractMonthPayroll()">🗑 收回本月薪資單（僅收回未簽名的）</button>
+      <button class="btn-primary" onclick="publishPayroll()"><span id="icon-payroll-publish"></span> 發布本月薪資單</button>
+      <button class="btn-secondary" onclick="retractMonthPayroll()"><span id="icon-payroll-retract"></span> 收回本月薪資單（僅收回未簽名的）</button>
       <div class="form-msg" id="payroll-publish-msg"></div>
     </div></div>
     <div class="card" id="payroll-months-card" style="display:none"><div id="payroll-months-list"><div class="empty-state">載入中…</div></div></div>
@@ -1014,17 +1130,19 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 </div>
 
 <nav class="bottom-nav" id="bottom-nav">
-  <button class="nav-btn active" onclick="switchTab('punch',this)"><span class="nav-icon">⏱</span><span class="nav-label">打卡</span></button>
-  <button class="nav-btn" onclick="switchTab('records',this)"><span class="nav-icon">📋</span><span class="nav-label">總覽</span></button>
-  <button class="nav-btn" onclick="switchTab('leave',this)"><span class="nav-icon">🗓</span><span class="nav-label">請假</span></button>
-  <button class="nav-btn" onclick="switchTab('overtime',this)"><span class="nav-icon">⏰</span><span class="nav-label">加班</span></button>
-  <button class="nav-btn" onclick="switchTab('profile',this)"><span class="nav-icon">👤</span><span class="nav-label">個人</span></button>
-  <button class="nav-btn" id="nav-admin" style="display:none" onclick="switchTab('admin',this)">
-    <span class="nav-icon">⚙️</span><span class="nav-label">管理</span>
+  <button class="nav-btn active" onclick="switchTab('punch',this)"><span class="nav-icon" id="navicon-punch"></span><span class="nav-label">打卡</span></button>
+  <button class="nav-btn" onclick="switchTab('records',this)"><span class="nav-icon" id="navicon-records"></span><span class="nav-label">總覽</span></button>
+  <button class="nav-btn" onclick="switchTab('leave',this)"><span class="nav-icon" id="navicon-leave"></span><span class="nav-label">請假</span></button>
+  <button class="nav-btn" onclick="switchTab('overtime',this)"><span class="nav-icon" id="navicon-overtime"></span><span class="nav-label">加班</span></button>
+  <button class="nav-btn" onclick="switchTab('profile',this)"><span class="nav-icon" id="navicon-profile"></span><span class="nav-label">個人</span></button>
+  <button class="nav-btn" id="nav-admin" style="display:none" onclick="enterAdminModule('hr',this)">
+    <span class="nav-icon" id="navicon-admin"></span><span class="nav-label">人事</span>
     <div class="nav-badge" id="admin-badge" style="display:none">0</div>
   </button>
-  <button class="nav-btn" id="nav-finance" style="display:none" onclick="switchTab('finance',this)"><span class="nav-icon">💰</span><span class="nav-label">財務</span></button>
+  <button class="nav-btn" id="nav-finance" style="display:none" onclick="switchTab('finance',this)"><span class="nav-icon" id="navicon-finance"></span><span class="nav-label">財務</span></button>
+  <button class="nav-btn" id="nav-system" style="display:none" onclick="enterAdminModule('system',this)"><span class="nav-icon" id="navicon-system"></span><span class="nav-label">系統</span></button>
 </nav>
+<nav class="desktop-sidebar" id="desktop-sidebar"></nav>
 
 <div class="overlay" id="overlay">
   <div class="result-sheet">
@@ -1047,6 +1165,13 @@ const API = 'https://script.google.com/macros/s/AKfycbw1KsPKfBtM6DYADYMbAzkqumwe
 let session = JSON.parse(sessionStorage.getItem('hs_session') || 'null');
 function saveSession(s){ session=s; sessionStorage.setItem('hs_session', JSON.stringify(s)); }
 function clearSession(){ session=null; sessionStorage.removeItem('hs_session'); }
+
+// ── Permission Preview：{mode:'profile',profile:'HR'} 或 {mode:'user',targetEid:'H018'}。
+// 存sessionStorage是刻意的——重新整理／切換頁籤都要繼續顯示常駐的預覽列，不能悄悄消失讓
+// 管理員忘記自己正在模擬別的角色。登出時要清掉（見doLogout），不能帶到下一次登入。
+let activePreview = JSON.parse(sessionStorage.getItem('hs_preview') || 'null');
+let previewAccessCtx = null; // get_effective_access_context的回傳，給常駐列文字跟Inspector用
+function savePreview(p){ activePreview=p; if(p) sessionStorage.setItem('hs_preview', JSON.stringify(p)); else sessionStorage.removeItem('hs_preview'); }
 
 // ── 班別（上班時間客製化）：後端在 login 回應會附上 session.shift，
 // 這裡多留一個預設值當保險（例如舊的 session 快取還沒有 shift 欄位時）。
@@ -1192,6 +1317,24 @@ const ICON_PATHS={
   checkCircle:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
   x:'<path d="M18 6L6 18M6 6l12 12"/>',
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  barChart:'<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-4"/>',
+  folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  gift:'<rect x="3" y="8" width="18" height="4"/><path d="M12 8v13M19 12v9H5v-9M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+  logOut:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
+  fileText:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>',
+  paperclip:'<path d="M21 12.5L12.5 21a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.5-7.5"/>',
+  key:'<circle cx="8" cy="15" r="4"/><path d="M10.5 12.5L20 3M17 6l3 3M14 9l2.5 2.5"/>',
+  building:'<rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>',
+  home:'<path d="M3 10l9-7 9 7"/><path d="M5 9v11a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9"/>',
+  car:'<path d="M5 17h14M5 17a2 2 0 1 0 0-.01M19 17a2 2 0 1 0 0-.01M3 17v-4l2-5h14l2 5v4M5 8h14"/>',
+  hourglass:'<path d="M6 2h12M6 22h12M6 2c0 6 12 6 12 12S6 16 6 22M18 2c0 6-12 6-12 12s12 4 12 10"/>',
+  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+  shieldCheck:'<path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>',
+  trash:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/><path d="M10 11v6M14 11v6"/>',
+  send:'<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
 };
 function icon(name, opts){
   opts=opts||{};
@@ -1201,6 +1344,38 @@ function icon(name, opts){
   const path=ICON_PATHS[name]||'';
   return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 24 24"${label?` role="img" aria-label="${label}"`:' aria-hidden="true"'}>${path}</svg>`;
 }
+// desktop sidebar跟mobile bottom-nav共用同一組DOM/JS（只是CSS把同一個<nav>從底部bar重新排版成
+// 側邊欄），所以icon只需要注入一次，不用分別維護兩份導覽列。
+const NAV_ICON_MAP={punch:'checkCircle',records:'list',leave:'calendar',overtime:'clock',profile:'user',admin:'users',finance:'wallet',system:'settings'};
+function renderNavIcons(){
+  Object.entries(NAV_ICON_MAP).forEach(([key,name])=>{
+    const el=document.getElementById('navicon-'+key);
+    if(el) el.innerHTML=icon(name,{size:20});
+  });
+}
+renderNavIcons();
+// 管理頁子頁籤跟主要banner的icon——跟nav同一套mapping/helper，只是這些是靜態HTML按鈕，
+// 不像nav是JS產生的，所以另外用一個對照表把icon塞進對應id的span裡。
+const STATIC_ICON_MAP={
+  'icon-tab-hroverview':'barChart',
+  'icon-tab-review':'checkCircle','icon-tab-manage':'user','icon-tab-directory':'users',
+  'icon-tab-companyoverview':'barChart','icon-tab-leavegrant':'gift','icon-tab-latemanage':'alertCircle',
+  'icon-tab-settings':'settings','icon-tab-reports':'folder',
+  'icon-banner-firstlogin':'alertCircle','icon-banner-payroll':'fileText','icon-banner-sickproof':'paperclip',
+  'icon-banner-latenotice':'alertCircle','icon-banner-hrbootstrap':'key',
+  'icon-mode-office':'building','icon-mode-home':'home','icon-mode-field':'car',
+  'icon-co-attendance':'clock','icon-co-leave':'calendar','icon-co-balance':'hourglass',
+  'icon-viewas':'eye',
+  'icon-report-pdf':'fileText','icon-report-leave':'barChart','icon-report-roster':'folder','icon-report-payroll':'wallet',
+  'icon-payroll-publish':'send','icon-payroll-retract':'trash',
+};
+function renderStaticIcons(){
+  Object.entries(STATIC_ICON_MAP).forEach(([id,name])=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=icon(name,{size:16});
+  });
+}
+renderStaticIcons();
 
 // ── GPS ────────────────────────────────────────────────────────
 let currentGPS=null, gpsWatcher=null, currentMode='辦公室';
@@ -1244,6 +1419,9 @@ setInterval(tick,1000); tick();
 async function api(action, data={}, useToken=true){
   const payload = { action, data };
   if(useToken && session?.token) payload.token = session.token;
+  // Permission Preview：啟用時每一次api()呼叫都自動附上目前的預覽身分，不用每個呼叫點自己記得帶——
+  // 後端只有在真正登入者本人是最高管理者時才會讓這個欄位生效，一般使用者自己改這個值也沒有用。
+  if(activePreview) payload.preview = activePreview;
   // 用 GET + callback 避免 CORS
   const encoded = encodeURIComponent(JSON.stringify(payload));
   const url = API + '?payload=' + encoded + '&cb=' + Date.now();
@@ -1334,11 +1512,10 @@ async function doLogin(){
     errEl.style.display='none';
     document.getElementById('bottom-nav').classList.add('visible');
     document.getElementById('header-logout-btn').style.display='block';
-    if(result.role>=1) document.getElementById('nav-admin').style.display='flex';
-    if(result.role>=2||result.isFinance) document.getElementById('nav-finance').style.display='flex';
+    applyModuleVisibility(result);
     if(result.firstLogin) document.getElementById('first-login-banner').style.display='block';
     showScreen('punch'); renderPunch(); startGPS(); refreshShiftDefs();
-    loadAdminBadge();
+    loadAdminBadge(); initPermissionPreviewUI(); renderDesktopSidebar();
   } catch(e){
     errEl.textContent=e.message||'登入失敗，請稍後再試';
     errEl.style.display='block';
@@ -1347,16 +1524,32 @@ async function doLogin(){
   }
 }
 
+// Sidebar依權限組合生成：baseline一定有（打卡/總覽/請假/加班/個人），hasHrAccess才加「人事」，
+// hasFinanceAccess才加「財務」，最高管理者兩個都給、另外再加「系統」。managerEid／isManager
+// 本身不影響這裡——主管只是資料scope，不會單獨生出人事模組的存取權（見getEffectiveAccessContext）。
+function applyModuleVisibility(s){
+  const isHighestAdmin=s.role>=2;
+  // role>=1單獨也要看得到「人事」nav──不是因為主管自動有HR module，是因為裡面的審核中心
+  // 本來就是主管審核自己團隊申請的地方（manager capability），跟hasHrAccess是兩件不同的事；
+  // 一旦點進去，會不會看到員工總覽/報表/設定這些真正HR-only的頁面，是loadAdmin()裡各自
+  // capability判斷的事，不是靠這個nav按鈕本身擋。
+  document.getElementById('nav-admin').style.display=(s.role>=1||isHighestAdmin||s.hasHrAccess)?'flex':'none';
+  document.getElementById('nav-finance').style.display=(isHighestAdmin||s.isFinance)?'flex':'none';
+  document.getElementById('nav-system').style.display=isHighestAdmin?'flex':'none';
+}
 function doLogout(){
   if(!confirm('確定要登出嗎？'))return;
+  savePreview(null); previewAccessCtx=null; renderPreviewBar();
   clearSession(); stopGPS(); currentGPS=null;
   document.getElementById('bottom-nav').classList.remove('visible');
   document.getElementById('nav-admin').style.display='none';
   document.getElementById('nav-finance').style.display='none';
+  document.getElementById('nav-system').style.display='none';
   document.getElementById('header-logout-btn').style.display='none';
   document.getElementById('first-login-banner').style.display='none';
   document.getElementById('inp-id').value=''; document.getElementById('inp-pw').value='';
   showScreen('login');
+  renderDesktopSidebar();
 }
 
 // ── 畫面切換 ─────────────────────────────────────────────────
@@ -1380,7 +1573,8 @@ function renderMiniProfile(screenId){
 
 function switchTab(n,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active'); showScreen(n);
+  if(btn) btn.classList.add('active');
+  showScreen(n);
   renderMiniProfile('screen-'+n);
   refreshShiftDefs(); // 背景刷新班別時間，確保切頁後用到的都是最新設定
   if(n==='punch')   renderPunch();
@@ -1390,6 +1584,7 @@ function switchTab(n,btn){
   if(n==='profile') renderProfile();
   if(n==='admin')   loadAdmin();
   if(n==='finance'){ loadFinanceMonthsHistory(); loadFinanceOverview(); }
+  renderDesktopSidebar();
 }
 
 // ── 打卡頁面 ─────────────────────────────────────────────────
@@ -1411,7 +1606,6 @@ function renderPunch(){
   checkPayrollReminder();
   checkSickProofReminder();
   checkLateNoticeReminder();
-  document.getElementById('batch-trigger-overdue-banner').style.display=session.batchTriggerOverdue?'block':'none';
   document.getElementById('hr-bootstrap-banner').style.display=session.hrAdminBootstrapAvailable?'block':'none';
 }
 
@@ -2411,16 +2605,26 @@ async function runHealthCheck(){
 // ── 管理後台 ─────────────────────────────────────────────────
 // 每個區塊各自獨立平行載入，避免其中一個卡住／變慢時拖累其他區塊(例如重設密碼、權限設定、打卡地點設定曾因此永遠不會執行到)
 function loadAdmin(){
-  if(!session||session.role<1)return;
+  // 進得了人事模組不等於role>=1——hasHrAccess=true的人（就算role還是0）也要進得來；
+  // 純粹role1但沒有hasHrAccess的人，只是「自己團隊的審核」這個manager capability，不代表
+  // 拿到整個人事模組（見下面幾個tab各自的capability判斷，不是全部都對role1開）。
+  if(!session||!(session.role>=1||session.hasHrAccess))return;
   document.getElementById('super-admin-section').style.display=session.role>=2?'block':'none';
+  // 重設別人的密碼只給Highest Admin（見Code.gs reset_password），不是manager/HR/Finance
+  // 既有權限自動附帶的能力，前端跟後端gate要一致。
+  document.getElementById('reset-pw-section').style.display=session.role>=2?'block':'none';
   document.getElementById('settings-non-admin-note').style.display=session.role>=2?'none':'block';
   document.getElementById('hr-bootstrap-label').style.display=session.hrAdminBootstrapAvailable?'block':'none';
   document.getElementById('hr-bootstrap-card').style.display=session.hrAdminBootstrapAvailable?'block':'none';
   document.getElementById('btn-emp-add-punch').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-emp-add-leave').style.display=session.role>=2?'block':'none';
   document.getElementById('tab-leavegrant').style.display=session.role>=2?'block':'none';
-  document.getElementById('tab-companyoverview').style.display=session.role>=1?'block':'none';
-  document.getElementById('tab-latemanage').style.display=session.role>=1?'block':'none';
+  // role>=1（非HR的一般主管）也要看得到這頁——後端get_company_attendance_overview已經套用
+  // 跟leave/overtime同一套manager scope（getGeneralAdminViewEids），非unrestricted的主管
+  // 只會拿到自己直屬部屬的資料，所以這裡開放role1不會變成P0那種越權外洩，是「團隊出勤」
+  // 這個manager capability能安全存在的前提。
+  document.getElementById('tab-companyoverview').style.display=(session.role>=1||session.hasHrAccess)?'block':'none';
+  document.getElementById('tab-latemanage').style.display=(session.role>=2||session.isHrAdmin||session.canManageAttendance||session.canManagePip)?'block':'none';
   document.getElementById('btn-export-roster').style.display=session.role>=2?'block':'none';
   document.getElementById('btn-export-payroll').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-publish-label').style.display=session.role>=2?'block':'none';
@@ -2431,13 +2635,12 @@ function loadAdmin(){
   document.getElementById('payroll-overview-card').style.display=session.role>=2?'block':'none';
   document.getElementById('emp-manage-section').style.display=session.role>=2?'block':'none';
   document.getElementById('tab-directory').style.display=session.role>=2?'block':'none';
-  if(session.role>=2){ loadPayrollMonthsHistory(); loadEmpManageList(); }
+  if(session.role>=2){ loadPayrollMonthsHistory(); loadEmpManageList(); loadAdminResetPw(); }
   loadAdminAttendance();
   loadAdminLeaveList();
   loadAdminPatchList();
   loadAdminOvertimeList();
   loadAdminCancelList();
-  loadAdminResetPw();
   if(session.role>=2){
     loadAdminRoles();
     loadAdminGpsConfig();
@@ -2451,16 +2654,113 @@ function loadAdmin(){
   if(session.role>=2) loadPayrollOverview();
 }
 
+const ADMIN_SUB_PAGES=['hroverview','review','manage','directory','companyoverview','leavegrant','latemanage','settings','reports'];
 function switchAdminSub(sub, btn){
   document.querySelectorAll('#screen-admin .mode-tab').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  ['review','manage','directory','companyoverview','leavegrant','latemanage','settings','reports'].forEach(s=>{
-    document.getElementById('admin-sub-'+s).style.display = s===sub ? 'block' : 'none';
+  if(btn) btn.classList.add('active');
+  ADMIN_SUB_PAGES.forEach(s=>{
+    const el=document.getElementById('admin-sub-'+s);
+    if(el) el.style.display = s===sub ? 'block' : 'none';
   });
   if(sub==='leavegrant'){ loadLeaveGrantList(); onLeaveGrantTypeChange(); }
   if(sub==='companyoverview'){ initCompanyOverview(); }
   if(sub==='latemanage'){ initLateManage(); }
   if(sub==='directory'){ loadEmployeeDirectory(); }
+  if(sub==='hroverview'){ loadHrOverview(); }
+  if(sub==='reports'){ initReportsView(); }
+  currentAdminSub=sub;
+  renderDesktopSidebar();
+}
+// mobile進「人事」／「系統」nav按鈕的落地頁，維持原樣（一律先落在審核中心，使用者自己在
+// .mode-tabs-grid切換）——這個函式現在只有mobile會呼叫到，desktop改走新的.desktop-sidebar，
+// 見下面renderDesktopSidebar／goToAdminSubDesktop。
+let currentAdminSub='review';
+function enterAdminModule(moduleKey, btn){
+  switchTab('admin', btn);
+  switchAdminSub('review', document.querySelector('.mode-tabs-grid [data-sub="review"]'));
+}
+// ── Desktop sidebar：單一約240px、依capability分組（工作／團隊／人事／財務／系統），
+// 組內expand/collapse，不再疊加第二條200px子導覽欄——跟mobile的.bottom-nav／.mode-tabs-grid
+// 完全是兩套獨立markup，不共用layout。團隊(isManager)只給「待我審核」／「團隊出勤」兩個
+// manager capability項目，manager relation本身不會生出完整人事module（見getEffectiveAccessContext）。
+// 財務／系統目前底層還是各自一個現有頁面（screen-finance／admin-sub-settings），還沒拆成多個
+// 獨立子頁，所以先各自只有一個項目，不要假造多個指向同一頁的連結。
+const DESKTOP_SIDEBAR_GROUPS=[
+  {key:'work',title:'工作',always:true,items:[
+    {label:'打卡',icon:'checkCircle',kind:'tab',target:'punch'},
+    {label:'我的總覽',icon:'list',kind:'tab',target:'records'},
+    {label:'請假',icon:'calendar',kind:'tab',target:'leave'},
+    {label:'加班',icon:'clock',kind:'tab',target:'overtime'},
+    {label:'個人',icon:'user',kind:'tab',target:'profile'},
+  ]},
+  {key:'team',title:'團隊',capability:'isManager',items:[
+    {label:'待我審核',icon:'checkCircle',kind:'admin',target:'review'},
+    {label:'團隊出勤',icon:'clock',kind:'admin',target:'companyoverview'},
+  ]},
+  {key:'hr',title:'人事',capability:'hasHrAccess',items:[
+    {label:'人事總覽',icon:'barChart',kind:'admin',target:'hroverview'},
+    {label:'員工總覽',icon:'users',kind:'admin',target:'directory'},
+    {label:'任用與排班',icon:'user',kind:'admin',target:'manage'},
+    {label:'出勤管理',icon:'clock',kind:'admin',target:'companyoverview'},
+    {label:'審核中心',icon:'checkCircle',kind:'admin',target:'review'},
+    {label:'假別授權',icon:'gift',kind:'admin',target:'leavegrant'},
+    {label:'遲到與PIP',icon:'alertCircle',kind:'admin',target:'latemanage',gate:'latemanage'},
+    {label:'人事報表',icon:'folder',kind:'admin',target:'reports'},
+  ]},
+  {key:'finance',title:'財務',capability:'isFinance',items:[
+    {label:'薪資',icon:'wallet',kind:'tab',target:'finance'},
+  ]},
+  {key:'system',title:'系統',capability:'isHighestAdmin',items:[
+    {label:'設定',icon:'settings',kind:'admin',target:'settings'},
+  ]},
+];
+const desktopSidebarExpanded={};
+function toggleDsGroup(key){
+  desktopSidebarExpanded[key]=desktopSidebarExpanded[key]===false;
+  renderDesktopSidebar();
+}
+function goToAdminSubDesktop(sub){
+  switchTab('admin', null);
+  switchAdminSub(sub, null);
+}
+function renderDesktopSidebar(){
+  const root=document.getElementById('desktop-sidebar');
+  if(!root) return;
+  const desktop=isDesktopWidth();
+  root.classList.toggle('visible', desktop);
+  if(!desktop || !session){ root.innerHTML=''; return; }
+  const isHighestAdmin=session.role>=2;
+  const activeScreenId=document.querySelector('.screen.active')?.id||'';
+  root.innerHTML=DESKTOP_SIDEBAR_GROUPS.filter(g=>g.always || (g.capability==='isHighestAdmin'?isHighestAdmin:session[g.capability])).map(g=>{
+    const items=g.items.filter(it=>it.gate!=='latemanage' || document.getElementById('tab-latemanage')?.style.display!=='none');
+    if(!items.length) return '';
+    const expanded=desktopSidebarExpanded[g.key]!==false;
+    const itemsHtml=items.map(it=>{
+      const isActive=it.kind==='tab' ? activeScreenId==='screen-'+it.target : (activeScreenId==='screen-admin' && currentAdminSub===it.target);
+      const onclick=it.kind==='tab' ? `switchTab('${it.target}',null)` : `goToAdminSubDesktop('${it.target}')`;
+      return `<button class="ds-item ${isActive?'active':''}" onclick="${onclick}">${icon(it.icon,{size:16})}<span>${it.label}</span></button>`;
+    }).join('');
+    return `<div class="ds-group${g.always?' always':''}">
+      <button class="ds-group-title" ${g.always?'':`onclick="toggleDsGroup('${g.key}')"`}>${g.title}${g.always?'':icon('chevronDown',{size:12})}</button>
+      ${g.always?itemsHtml:(expanded?itemsHtml:'')}
+    </div>`;
+  }).join('');
+}
+window.addEventListener('resize', debounce(()=>{
+  if(!document.getElementById('screen-admin')?.classList.contains('active')) return;
+  if(document.getElementById('admin-sub-reports')?.style.display!=='none') initReportsView();
+}, 200));
+window.addEventListener('resize', debounce(renderPreviewBar, 200));
+window.addEventListener('resize', debounce(renderDesktopSidebar, 200));
+// Desktop用真正的report center表格，mobile維持stacked action cards——同一套action function，
+// 只是切換哪個容器可見。btn-export-roster/btn-export-payroll的既有role/finance判斷(loadAdmin())
+// 已經先設定好對應按鈕的display，這裡直接讀那個結果來同步桌面表格的對應列要不要顯示。
+function initReportsView(){
+  const desktop=isDesktopWidth();
+  document.getElementById('reports-desktop-table').style.display=desktop?'block':'none';
+  document.getElementById('reports-mobile-actions').style.display=desktop?'none':'block';
+  document.getElementById('report-row-roster').style.display=(desktop && document.getElementById('btn-export-roster').style.display!=='none')?'table-row':'none';
+  document.getElementById('reports-desktop-finance-table').style.display=(desktop && document.getElementById('btn-export-payroll').style.display!=='none')?'block':'none';
 }
 
 // 今日出勤（從後端撈所有人今日打卡）
@@ -2990,7 +3290,19 @@ function renderEmpEditForm(e){
     <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="ee-isHrAdmin-${e.eid}" ${e.isHrAdmin?'checked':''}> HR最高管理權限</label>
     <button class="btn-primary" onclick="submitUpdateEmployee('${e.eid}')">儲存變更</button>
     <div class="form-msg" id="ee-msg-${e.eid}"></div>
+    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="ee-hasHrAccess-${e.eid}" ${e.hasHrAccess?'checked':''} onchange="submitSetHrAccess('${e.eid}',this.checked)"> 可進入「人事」模組（module存取權限，跟上面HR最高管理權限是分開的兩件事）</label>
+      <div class="form-msg" id="ee-hraccess-msg-${e.eid}"></div>
+    </div>
   </div>`;
+}
+async function submitSetHrAccess(eid, checked){
+  const msg=document.getElementById('ee-hraccess-msg-'+eid);
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('set_hr_access_flag',{targetEid:eid,hasHrAccess:checked});
+    msg.textContent='✓ '+result.message; msg.className='form-msg ok';
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; document.getElementById('ee-hasHrAccess-'+eid).checked=!checked; }
 }
 async function submitUpdateEmployee(eid){
   const msg=document.getElementById('ee-msg-'+eid);
@@ -3022,20 +3334,44 @@ async function submitUpdateEmployee(eid){
 
 // ── 員工總覽：任用狀態(待到職/在職中/留停中/離職中)＋留停/離職辦理 ──────
 const EMP_STATUS_COLOR={待到職:'#4a7fd6',在職中:'#2a7a5a',留停中:'#b58900',離職中:'#bd898e',已離職:'#7a7875'};
-let empDirectoryList=[], empDirectoryExpanded=null;
+let empDirectoryList=[], empDirectoryExpanded=null, empDirectoryFilter='ACTIVE';
+const EMP_DIRECTORY_FILTERS=[
+  {key:'ACTIVE',label:'在職'},{key:'EXITING',label:'離職中'},{key:'LEAVE_OF_ABSENCE',label:'留停中'},
+  {key:'PREBOARDING',label:'待到職'},{key:'TERMINATED',label:'已離職'},{key:'ALL',label:'全部'},
+];
+function renderEmpDirectoryFilterTabs(){
+  document.getElementById('emp-directory-filter-tabs').innerHTML=EMP_DIRECTORY_FILTERS.map(f=>
+    `<button class="mode-tab ${empDirectoryFilter===f.key?'active':''}" onclick="switchEmpDirectoryFilter('${f.key}')">${f.label}</button>`
+  ).join('');
+}
+function switchEmpDirectoryFilter(key){
+  empDirectoryFilter=key;
+  empDirectoryExpanded=null;
+  renderEmpDirectoryFilterTabs();
+  loadEmployeeDirectory();
+}
 async function loadEmployeeDirectory(){
+  renderEmpDirectoryFilterTabs();
   const el=document.getElementById('emp-directory-list');
   el.innerHTML='<div class="empty-state">載入中…</div>';
   try{
-    const result=await api('get_employee_directory');
+    const result=await api('get_employee_directory',{filter:empDirectoryFilter});
     empDirectoryList=result.employees||[];
     renderEmployeeDirectory();
   }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
+// Desktop跟mobile用同一份empDirectoryList、同一套toggleEmpDirectoryRow/renderEmpDirectoryDetail
+// 跟所有submit*action，只有這兩個render function的「排版模板」不一樣（卡片 vs 表格）——不是
+// 依User-Agent判斷，是純粹依目前viewport寬度（matchMedia），純呈現層的分流。
+function isDesktopWidth(){ return window.matchMedia('(min-width:1200px)').matches; }
+const EMP_STATUS_PILL={待到職:'accent',在職中:'success',留停中:'warning',離職中:'danger',已離職:'neutral'};
 function renderEmployeeDirectory(){
   const el=document.getElementById('emp-directory-list');
-  if(!empDirectoryList.length){ el.innerHTML='<div class="empty-state">沒有任用中的員工</div>'; return; }
-  el.innerHTML=empDirectoryList.map(e=>{
+  if(!empDirectoryList.length){ el.innerHTML='<div class="empty-state">這個分類目前沒有員工</div>'; return; }
+  el.innerHTML=isDesktopWidth()?renderEmployeeDirectoryTable():renderEmployeeDirectoryCards();
+}
+function renderEmployeeDirectoryCards(){
+  return empDirectoryList.map(e=>{
     const expanded=empDirectoryExpanded===e.eid;
     const color=EMP_STATUS_COLOR[e.effectiveEmploymentStatus]||'#7a7875';
     return `<div class="settings-row" style="cursor:pointer;flex-direction:column;align-items:stretch" onclick="toggleEmpDirectoryRow('${e.eid}')">
@@ -3050,6 +3386,25 @@ function renderEmployeeDirectory(){
     </div>`;
   }).join('');
 }
+function renderEmployeeDirectoryTable(){
+  const rows=empDirectoryList.map(e=>{
+    const expanded=empDirectoryExpanded===e.eid;
+    return `<tr style="cursor:pointer" onclick="toggleEmpDirectoryRow('${e.eid}')">
+        <td style="font-weight:600">${e.name}（${e.eid}）</td>
+        <td>${e.dept||''} ${e.title||''}</td>
+        <td><span class="status-pill ${EMP_STATUS_PILL[e.effectiveEmploymentStatus]||'neutral'}">${e.effectiveEmploymentStatus}</span></td>
+        <td>${e.accountStatus&&e.accountStatus!=='ACTIVE'?`<span class="status-pill danger">帳號${e.accountStatus==='DISABLED'?'已停用':'已停權'}</span>`:'—'}</td>
+        <td style="text-align:right;color:var(--text-soft)">${expanded?'▲':'▼'}</td>
+      </tr>
+      ${expanded?`<tr><td colspan="5" style="cursor:default;padding:0 10px 16px" onclick="event.stopPropagation()">${renderEmpDirectoryDetail(e)}</td></tr>`:''}`;
+  }).join('');
+  return `<div style="overflow-x:auto"><table class="data-table">
+    <thead><tr><th>姓名</th><th>部門/職稱</th><th>任用狀態</th><th>帳號</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+window.addEventListener('resize', debounce(()=>{ if(empDirectoryList.length && document.getElementById('admin-sub-directory')?.style.display!=='none') renderEmployeeDirectory(); }, 200));
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
 function toggleEmpDirectoryRow(eid){
   empDirectoryExpanded=empDirectoryExpanded===eid?null:eid;
   renderEmployeeDirectory();
@@ -3150,6 +3505,146 @@ async function submitTerminateEmployee(eid){
     showToast('✓ '+result.message);
     loadEmployeeDirectory();
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+// ── Permission Preview：常駐preview bar + picker/inspector drawer ──────
+// UI只負責「顯示」跟「送出preview context」，實際的權限縮限完全在後端(getEffectiveAccessContext
+// ＋doPost把emp換成模擬身分)做——這裡沒有任何一行程式碼自己判斷「這個角色該不該看到X」，
+// 那種判斷屬於安全性邏輯，不能只放在前端。
+const PREVIEW_PROFILE_OPTIONS=[
+  {key:'EMPLOYEE',label:'一般員工'},{key:'HR',label:'HR'},
+  {key:'FINANCE',label:'財務'},{key:'HIGHEST_ADMIN',label:'最高管理'},
+];
+let previewPickerOpen=false, previewInspectorExpanded=false, previewDebugExpanded=false;
+function initPermissionPreviewUI(){
+  document.getElementById('header-viewas-btn').style.display=(session&&session.role>=2)?'inline-flex':'none';
+  if(activePreview) loadPreviewAccessCtx(); else renderPreviewBar();
+}
+async function loadPreviewAccessCtx(){
+  try{ const r=await api('get_effective_access_context'); previewAccessCtx=r.context; }
+  catch(e){ previewAccessCtx=null; }
+  renderPreviewBar();
+}
+function identityLabel(ctx){
+  return ctx.isHighestAdmin?'最高管理':(ctx.hasHrAccess&&ctx.hasFinanceAccess?'HR + 財務':ctx.hasHrAccess?'HR':ctx.hasFinanceAccess?'財務':'一般員工');
+}
+function renderPreviewBar(){
+  const root=document.getElementById('preview-bar-root');
+  if(!activePreview || !previewAccessCtx || !previewAccessCtx.previewActive){
+    root.innerHTML=''; return;
+  }
+  const ctx=previewAccessCtx;
+  if(isDesktopWidth()){
+    root.innerHTML=`<div class="preview-notice visible">
+      <span class="pn-icon">${icon('shieldCheck',{size:15})}</span>
+      <span class="pn-who">權限預覽 · ${ctx.previewLabel}</span>
+      <span class="pn-sep">｜</span>
+      <span class="pn-role">${identityLabel(ctx)} · 唯讀</span>
+      <span class="pn-actions">
+        <button onclick="openPreviewPicker(true)">Inspector</button>
+        <button class="pn-exit" onclick="exitPreview()">Exit</button>
+      </span>
+    </div>`;
+  } else {
+    root.innerHTML=`<div class="preview-bar visible">
+      <div class="pb-label" style="cursor:pointer" onclick="openPreviewPicker()">${icon('shieldCheck',{size:15})} 權限預覽｜${ctx.previewLabel}｜唯讀</div>
+      <button class="pb-exit" onclick="event.stopPropagation();exitPreview()">退出預覽</button>
+    </div>`;
+  }
+}
+function openPreviewPicker(autoExpandInspector){
+  previewPickerOpen=true; previewInspectorExpanded=!!autoExpandInspector; previewDebugExpanded=false;
+  renderPreviewPickerDrawer();
+}
+function closePreviewPicker(){
+  previewPickerOpen=false;
+  document.getElementById('terms-drawer-root').innerHTML='';
+}
+function accessLabel(v){ return v?'✓ 是':'— 否'; }
+function formatDebugFlagValue(v){
+  if(Array.isArray(v)) return v.length?JSON.stringify(v):'[]';
+  if(typeof v==='boolean') return accessLabel(v);
+  return String(v);
+}
+function scopeLabel(ctx){
+  if(ctx.isHighestAdmin || ctx.hasHrAccess) return '全公司';
+  if(ctx.isManager) return `自己＋${ctx.managedEids.length}位直屬部屬`;
+  return '僅自己';
+}
+function renderPreviewPickerDrawer(){
+  const root=document.getElementById('terms-drawer-root');
+  if(!previewPickerOpen){ root.innerHTML=''; return; }
+  const ctx=previewAccessCtx;
+  const currentSummary = (activePreview && ctx && ctx.previewActive) ? `
+    <div class="card" style="margin-bottom:14px"><div class="card-inner">
+      <div class="section-title" style="font-size:15px;margin-bottom:8px">${icon('shieldCheck',{size:16})} 目前預覽中</div>
+      <div class="body-text" style="font-weight:600">${ctx.previewLabel}</div>
+      <div class="meta-text" style="margin-top:2px">${ctx.previewMode==='profile'?'Preset · 能力模擬（capability simulation，非完整員工資料）':'Actual User · 真實權限/資料 Scope 模擬（安全性QA請以此為準）'}</div>
+      <button class="action-btn btn-secondary" style="margin-top:10px;width:auto;padding:8px 14px" onclick="previewInspectorExpanded=!previewInspectorExpanded;renderPreviewPickerDrawer()">
+        ${previewInspectorExpanded?'收合':'展開'}目前有效權限
+      </button>
+      ${previewInspectorExpanded?renderPermissionInspector(ctx):''}
+      <button class="btn-secondary" style="margin-top:10px" onclick="exitPreview()">退出預覽</button>
+    </div></div>` : '';
+  root.innerHTML=`<div class="drawer-overlay" onclick="if(event.target===this)closePreviewPicker()">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <div class="section-title">View as</div>
+        <button class="icon-btn" aria-label="關閉" onclick="closePreviewPicker()">${icon('x')}</button>
+      </div>
+      ${currentSummary}
+      <div class="meta-text" style="margin-bottom:2px">Preset · 能力模擬（capability simulation）</div>
+      <div class="meta-text" style="margin-bottom:8px;font-size:11px">用合成身分快速模擬單一角色的能力組合，僅供快速smoke test；不是真實員工資料，安全性QA請改用下方「View As Actual User」</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+        ${PREVIEW_PROFILE_OPTIONS.map(p=>`<button class="action-btn btn-secondary" style="width:auto;padding:9px 14px" onclick="startPreview({mode:'profile',profile:'${p.key}'})">${p.label}</button>`).join('')}
+      </div>
+      <div class="meta-text" style="margin-bottom:2px">View As Actual User · 真實權限/資料 Scope 模擬（real effective permission simulation）</div>
+      <div class="meta-text" style="margin-bottom:8px;font-size:11px">用這位員工真實的HR／財務／考勤／PIP／主管範圍／任用狀態計算——最重要的安全性QA工具，請以此為準</div>
+      <div style="display:flex;gap:8px">
+        <select class="form-select" id="preview-user-select" onfocus="populatePreviewUserSelect()" style="flex:1"></select>
+        <button class="btn-primary" style="width:auto;padding:0 16px" onclick="startPreviewAsUser()">開始預覽</button>
+      </div>
+    </div>
+  </div>`;
+}
+function renderPermissionInspector(ctx){
+  return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+    <div class="meta-text" style="margin-bottom:4px">身分</div>
+    <div class="body-text" style="margin-bottom:8px">${identityLabel(ctx)}</div>
+    <div class="meta-text" style="margin-bottom:4px">額外能力</div>
+    <div class="body-text" style="margin-bottom:8px">${[ctx.canManageAttendance&&'考勤管理',ctx.canManagePip&&'PIP管理'].filter(Boolean).join('、')||'（無）'}</div>
+    <div class="meta-text" style="margin-bottom:4px">資料 Scope</div>
+    <div class="body-text" style="margin-bottom:8px">${scopeLabel(ctx)}</div>
+    <button class="action-btn btn-secondary" style="width:auto;padding:6px 12px;font-size:11px" onclick="previewDebugExpanded=!previewDebugExpanded;renderPreviewPickerDrawer()">${previewDebugExpanded?'收合':'展開'} Debug（原始 permission flags）</button>
+    ${previewDebugExpanded?`<table class="data-table" style="margin-top:8px"><tbody>
+      ${['realAuthenticatedEid','effectiveViewerEid','isHighestAdmin','hasHrAccess','hasFinanceAccess','canManageAttendance','canManagePip','isManager','managedEids'].map(k=>`<tr><td>${k}</td><td>${formatDebugFlagValue(ctx[k])}</td></tr>`).join('')}
+    </tbody></table>`:''}
+  </div>`;
+}
+async function populatePreviewUserSelect(){
+  const sel=document.getElementById('preview-user-select');
+  if(sel.dataset.loaded) return;
+  try{
+    const r=await api('get_employee_directory',{filter:'ALL'});
+    sel.innerHTML=(r.employees||[]).map(e=>`<option value="${e.eid}">${e.name}（${e.eid}）· ${e.effectiveEmploymentStatus}</option>`).join('');
+    sel.dataset.loaded='1';
+  }catch(e){}
+}
+async function startPreviewAsUser(){
+  const targetEid=document.getElementById('preview-user-select').value;
+  if(!targetEid) return;
+  await startPreview({mode:'user',targetEid});
+}
+async function startPreview(context){
+  savePreview(context);
+  try{ await loadPreviewAccessCtx(); }catch(e){}
+  closePreviewPicker();
+  location.reload();
+}
+function exitPreview(){
+  savePreview(null); previewAccessCtx=null;
+  closePreviewPicker();
+  location.reload();
 }
 
 // ── 任用條件與排班 Drawer（薪資條件／排班／工時摘要三個內部頁籤）──────
@@ -4807,7 +5302,7 @@ async function submitOvertime(){
 }
 
 async function loadAdminBadge(){
-  if(!session||session.role<1)return;
+  if(!session||!(session.role>=1||session.hasHrAccess))return;
   try{
     const [lr,pr,cr]=await Promise.all([
       api('get_leave_requests',{pendingOnly:true,adminView:true}),
@@ -4819,24 +5314,41 @@ async function loadAdminBadge(){
     const badge=document.getElementById('admin-badge');
     if(count>0){badge.style.display='flex';badge.textContent=count;}
     else badge.style.display='none';
-    const banner=document.getElementById('admin-pending-banner');
-    if(count>0){
-      document.getElementById('admin-pending-text').textContent=`你有 ${count} 筆待審核項目`;
-      banner.style.display='block';
-    } else {
-      banner.style.display='none';
-    }
   }catch(e){}
+}
+
+// 人事總覽：小型landing頁摘要，不是審核中心的複製——只給3個高層數字＋快速前往按鈕。
+async function loadHrOverview(){
+  const root=document.getElementById('hr-overview-stats');
+  try{
+    const [dirR,lr,pr,cr,otR,pipR]=await Promise.all([
+      api('get_employee_directory',{filter:'ACTIVE'}),
+      api('get_leave_requests',{pendingOnly:true,adminView:true}),
+      api('get_patch_requests',{pendingOnly:true,adminView:true}),
+      api('get_cancel_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]})),
+      api('get_overtime_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]})),
+      api('get_pip_cases',{}).catch(()=>({cases:[]})),
+    ]);
+    const activeCount=(dirR.employees||[]).length;
+    const pendingCount=(lr.requests||[]).length+(pr.requests||[]).length+(cr.requests||[]).length+(otR.requests||[]).length;
+    const closedPip=['通過','未改善','取消','未核准'];
+    const openPipCount=(pipR.cases||[]).filter(c=>!closedPip.includes(c.status)).length;
+    root.innerHTML=`
+      <div class="stat-tile"><div class="stat-label">在職人數</div><div class="stat-value">${activeCount}</div></div>
+      <div class="stat-tile"><div class="stat-label">待審核項目</div><div class="stat-value">${pendingCount}</div></div>
+      <div class="stat-tile"><div class="stat-label">待處理PIP案件</div><div class="stat-value">${openPipCount}</div></div>
+    `;
+  }catch(e){ root.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
 
 // ── 自動重新登入（若 session 存在）───────────────────────────
 if(session){
   document.getElementById('bottom-nav').classList.add('visible');
   document.getElementById('header-logout-btn').style.display='block';
-  if(session.role>=1) document.getElementById('nav-admin').style.display='flex';
-  if(session.role>=2||session.isFinance) document.getElementById('nav-finance').style.display='flex';
+  applyModuleVisibility(session);
   if(session.firstLogin) document.getElementById('first-login-banner').style.display='block';
   showScreen('punch'); renderPunch(); startGPS(); loadAdminBadge(); refreshShiftDefs();
+  initPermissionPreviewUI(); renderDesktopSidebar();
 }
 </script>
 </body>
