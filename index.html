@@ -1512,7 +1512,7 @@ async function doLogin(){
     errEl.style.display='none';
     document.getElementById('bottom-nav').classList.add('visible');
     document.getElementById('header-logout-btn').style.display='block';
-    applyModuleVisibility(result);
+    applyModuleVisibility();
     if(result.firstLogin) document.getElementById('first-login-banner').style.display='block';
     showScreen('punch'); renderPunch(); startGPS(); refreshShiftDefs();
     loadAdminBadge(); initPermissionPreviewUI(); renderDesktopSidebar();
@@ -1525,17 +1525,44 @@ async function doLogin(){
 }
 
 // Sidebar依權限組合生成：baseline一定有（打卡/總覽/請假/加班/個人），hasHrAccess才加「人事」，
-// hasFinanceAccess才加「財務」，最高管理者兩個都給、另外再加「系統」。managerEid／isManager
-// 本身不影響這裡——主管只是資料scope，不會單獨生出人事模組的存取權（見getEffectiveAccessContext）。
-function applyModuleVisibility(s){
-  const isHighestAdmin=s.role>=2;
-  // role>=1單獨也要看得到「人事」nav──不是因為主管自動有HR module，是因為裡面的審核中心
-  // 本來就是主管審核自己團隊申請的地方（manager capability），跟hasHrAccess是兩件不同的事；
-  // 一旦點進去，會不會看到員工總覽/報表/設定這些真正HR-only的頁面，是loadAdmin()裡各自
-  // capability判斷的事，不是靠這個nav按鈕本身擋。
-  document.getElementById('nav-admin').style.display=(s.role>=1||isHighestAdmin||s.hasHrAccess)?'flex':'none';
-  document.getElementById('nav-finance').style.display=(isHighestAdmin||s.isFinance)?'flex':'none';
-  document.getElementById('nav-system').style.display=isHighestAdmin?'flex':'none';
+// hasFinanceAccess才加「財務」，最高管理者兩個都給、另外再加「系統」。isManager只影響「團隊」
+// （desktop）或「人事」nav的manager審核入口（mobile），不會單獨生出完整人事module的存取權
+// （見getEffectiveAccessContext）。
+//
+// 根因修正（QA發現：Preview Employee時desktop sidebar仍顯示完整人事/財務）：這支跟
+// renderDesktopSidebar()原本都直接讀傳進來的`session`（真實登入者），Permission Preview
+// 啟用後從來沒有被重新導向去讀`previewAccessCtx`（effective viewer）——preview bar本身讀
+// previewAccessCtx所以顯示正確，但nav/sidebar這條路徑整個沒有接到preview，是兩條分岔的
+// render path各自為政，不是CSS藏不藏的問題。修法：所有nav/sidebar render一律透過
+// effectiveNavCtx()這個唯一入口決定「現在有效的身分能力」，preview啟用時就用
+// previewAccessCtx，沒有就用真實session，不要再各自直接讀session。
+function effectiveNavCtx(){
+  if(!session) return null;
+  if(activePreview){
+    if(previewAccessCtx && previewAccessCtx.previewActive){
+      const ctx=previewAccessCtx;
+      return {isHighestAdmin:!!ctx.isHighestAdmin, hasHrAccess:!!ctx.hasHrAccess, isFinance:!!ctx.hasFinanceAccess, isManager:!!ctx.isManager};
+    }
+    // preview標記為啟用，但get_effective_access_context還沒回來（例如剛location.reload()、
+    // fetch還在飛）——寧可先給baseline-only（全部false），等loadPreviewAccessCtx()載完再重render，
+    // 也不能在這個空窗期先閃出真實登入者的完整nav。
+    return {isHighestAdmin:false, hasHrAccess:false, isFinance:false, isManager:false};
+  }
+  return {isHighestAdmin:session.role>=2, hasHrAccess:!!session.hasHrAccess, isFinance:!!session.isFinance, isManager:!!session.isManager};
+}
+function applyModuleVisibility(){
+  const ctx=effectiveNavCtx();
+  const isHighestAdmin=!!(ctx&&ctx.isHighestAdmin);
+  // 人事nav（mobile）：isManager單獨也要看得到——不是因為主管自動有HR module，是因為裡面的
+  // 審核中心本來就是主管審核自己團隊申請的地方（manager capability），跟hasHrAccess是兩件
+  // 不同的事；一旦點進去，會不會看到員工總覽/報表/設定這些真正HR-only的頁面，是loadAdmin()
+  // 裡各自capability判斷的事，不是靠這個nav按鈕本身擋。改用isManager（而不是舊版的
+  // session.role>=1）是因為role是「真實登入者」才有的欄位，preview profile沒有對應語意的
+  // role數字——isManager本身就是從同一個getEffectiveAccessContext算出來的，preview／真實
+  // 兩種情況都適用，不用再維護兩套判斷。
+  document.getElementById('nav-admin').style.display=(ctx&&(isHighestAdmin||ctx.hasHrAccess||ctx.isManager))?'flex':'none';
+  document.getElementById('nav-finance').style.display=(ctx&&(isHighestAdmin||ctx.isFinance))?'flex':'none';
+  document.getElementById('nav-system').style.display=(ctx&&isHighestAdmin)?'flex':'none';
 }
 function doLogout(){
   if(!confirm('確定要登出嗎？'))return;
@@ -2728,10 +2755,11 @@ function renderDesktopSidebar(){
   if(!root) return;
   const desktop=isDesktopWidth();
   root.classList.toggle('visible', desktop);
-  if(!desktop || !session){ root.innerHTML=''; return; }
-  const isHighestAdmin=session.role>=2;
+  if(!desktop){ root.innerHTML=''; return; }
+  const ctx=effectiveNavCtx();
+  if(!ctx){ root.innerHTML=''; return; }
   const activeScreenId=document.querySelector('.screen.active')?.id||'';
-  root.innerHTML=DESKTOP_SIDEBAR_GROUPS.filter(g=>g.always || (g.capability==='isHighestAdmin'?isHighestAdmin:session[g.capability])).map(g=>{
+  root.innerHTML=DESKTOP_SIDEBAR_GROUPS.filter(g=>g.always || (g.capability==='isHighestAdmin'?ctx.isHighestAdmin:ctx[g.capability])).map(g=>{
     const items=g.items.filter(it=>it.gate!=='latemanage' || document.getElementById('tab-latemanage')?.style.display!=='none');
     if(!items.length) return '';
     const expanded=desktopSidebarExpanded[g.key]!==false;
@@ -3523,6 +3551,11 @@ function initPermissionPreviewUI(){
 async function loadPreviewAccessCtx(){
   try{ const r=await api('get_effective_access_context'); previewAccessCtx=r.context; }
   catch(e){ previewAccessCtx=null; }
+  // 這裡才是preview真正生效的時間點——nav/sidebar一定要跟著在這裡重render，不能只更新
+  // preview bar。在這之前（例如剛location.reload()完、這支fetch還沒回來）effectiveNavCtx()
+  // 會先回傳baseline-only，等這裡resolve才會換成真正的preview身分。
+  applyModuleVisibility();
+  renderDesktopSidebar();
   renderPreviewBar();
 }
 function identityLabel(ctx){
@@ -5345,7 +5378,7 @@ async function loadHrOverview(){
 if(session){
   document.getElementById('bottom-nav').classList.add('visible');
   document.getElementById('header-logout-btn').style.display='block';
-  applyModuleVisibility(session);
+  applyModuleVisibility();
   if(session.firstLogin) document.getElementById('first-login-banner').style.display='block';
   showScreen('punch'); renderPunch(); startGPS(); loadAdminBadge(); refreshShiftDefs();
   initPermissionPreviewUI(); renderDesktopSidebar();
