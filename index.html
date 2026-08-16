@@ -4,19 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>HerStrategy Marketing · 考勤系統</title>
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
+  /* ── Attendance UI Foundation ──────────────────────────────────────
+     Professional operations system, not a cute startup SaaS: clean sans
+     typography, restrained shape language (small radius on inputs/buttons,
+     moderate radius on cards/panels, pill reserved for status/tag only),
+     neutral/graphite base with one accent and status-only colour usage. */
+  --font-sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",-apple-system,system-ui,sans-serif;
   --charcoal:#3c3936;--brand-blue:#839fc1;--deep-blue:#164067;
   --rose:#bd898e;--warm-gray:#b9bdc1;--blue-lo:#dce7f1;--rose-lo:#f2e3e4;
   --bg:#f5f4f2;--surface:#fafaf9;--border:#e2dedd;
   --text:#3c3936;--text-soft:#7a7875;
   --green:#2a7a5a;--green-lo:#c8e8dc;
   --amber:#b07d2a;--amber-lo:#faeeda;
-  --radius-lg:20px;--radius-md:14px;--shadow:0 3px 20px rgba(60,57,54,.09);
+  /* Shape scale: input/button 6-8px, card/panel 10-12px, dialog/drawer 12-16px, status pill full */
+  --radius-sm:8px;--radius-md:8px;--radius-lg:12px;--radius-xl:16px;--radius-pill:999px;
+  --shadow:0 3px 20px rgba(60,57,54,.09);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;display:flex;flex-direction:column;align-items:center;-webkit-font-smoothing:antialiased}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100dvh;display:flex;flex-direction:column;align-items:center;-webkit-font-smoothing:antialiased}
 .deco{position:fixed;top:-60px;right:-60px;width:220px;height:220px;pointer-events:none;z-index:0}
 .deco .c1{position:absolute;width:160px;height:160px;border-radius:50%;background:var(--charcoal);opacity:.07;top:0;right:0}
 .deco .c2{position:absolute;width:110px;height:110px;border-radius:50%;background:var(--brand-blue);opacity:.13;bottom:10px;right:30px}
@@ -166,7 +176,35 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
 /* Overlay */
 .overlay{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center;background:rgba(60,57,54,.45);backdrop-filter:blur(5px)}
 .overlay.show{display:flex}
-.result-sheet{background:var(--surface);width:100%;max-width:430px;border-radius:24px 24px 0 0;padding:32px 28px max(32px,env(safe-area-inset-bottom));text-align:center;animation:slideUp .3s cubic-bezier(.34,1.4,.64,1);position:relative;overflow:hidden}
+.result-sheet{background:var(--surface);width:100%;max-width:430px;border-radius:var(--radius-xl) var(--radius-xl) 0 0;padding:32px 28px max(32px,env(safe-area-inset-bottom));text-align:center;animation:slideUp .3s cubic-bezier(.34,1.4,.64,1);position:relative;overflow:hidden}
+
+/* ── Attendance UI Foundation: shared drawer + typography + icon + table primitives ── */
+.page-title{font-size:28px;font-weight:600;line-height:1.25;color:var(--text)}
+.section-title{font-size:18px;font-weight:600;color:var(--text)}
+.body-text{font-size:15px;font-weight:400;color:var(--text);line-height:1.6}
+.meta-text{font-size:13px;font-weight:500;color:var(--text-soft)}
+.icon{width:18px;height:18px;stroke:currentColor;stroke-width:1.85;fill:none;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-3px;flex-shrink:0}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface);color:var(--text-soft);cursor:pointer}
+.action-btn{display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:14px;font-weight:500}
+.status-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:var(--radius-pill);border:1px solid transparent}
+.status-pill.neutral{background:#f0efee;color:var(--text-soft)}
+.status-pill.accent{background:var(--blue-lo);color:var(--deep-blue)}
+.status-pill.success{background:var(--green-lo);color:var(--green)}
+.status-pill.warning{background:var(--amber-lo);color:var(--amber)}
+.status-pill.danger{background:var(--rose-lo);color:var(--rose)}
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;font-size:12px;font-weight:600;color:var(--text-soft);padding:8px 10px;border-bottom:1.5px solid var(--border);white-space:nowrap}
+.data-table td{padding:10px;border-bottom:1px solid var(--bg);color:var(--text);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.stat-row{display:flex;gap:10px;flex-wrap:wrap}
+.stat-tile{flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.stat-tile .stat-label{font-size:12px;font-weight:500;color:var(--text-soft);margin-bottom:4px}
+.stat-tile .stat-value{font-size:20px;font-weight:600;color:var(--text)}
+.drawer-overlay{position:fixed;inset:0;background:rgba(60,57,54,.35);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.drawer-panel{background:var(--surface);width:100%;max-width:430px;max-height:88vh;overflow-y:auto;border-radius:var(--radius-xl) var(--radius-xl) 0 0;padding:24px 20px max(24px,env(safe-area-inset-bottom));animation:slideUp .25s cubic-bezier(.34,1.2,.64,1)}
+.drawer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.timeline-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bg)}
+.timeline-row:last-child{border-bottom:none}
 .result-sheet::before{content:'';position:absolute;width:160px;height:160px;border-radius:50%;background:var(--brand-blue);opacity:.07;top:-60px;right:-40px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .result-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 24px}
@@ -541,6 +579,7 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   <div class="mode-tabs-grid">
     <button class="mode-tab active" onclick="switchAdminSub('review',this)">🗂 審核</button>
     <button class="mode-tab" onclick="switchAdminSub('manage',this)">👥 員工</button>
+    <button class="mode-tab" id="tab-directory" onclick="switchAdminSub('directory',this)" style="display:none">🗂 員工總覽</button>
     <button class="mode-tab" id="tab-companyoverview" onclick="switchAdminSub('companyoverview',this)" style="display:none">📈 總覽</button>
     <button class="mode-tab" id="tab-leavegrant" onclick="switchAdminSub('leavegrant',this)" style="display:none">🎁 假別授權</button>
     <button class="mode-tab" id="tab-latemanage" onclick="switchAdminSub('latemanage',this)" style="display:none">⏰ 遲到管理</button>
@@ -672,6 +711,15 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
       <div class="form-msg" id="eal-msg"></div>
     </div></div>
     <div id="emp-history-list"><div class="card"><div class="empty-state">請選擇員工與月份</div></div></div>
+  </div>
+
+  <!-- ══ 員工總覽（任用狀態總覽：待到職/在職中/留停中/離職中/已離職） ══ -->
+  <div id="admin-sub-directory" style="display:none">
+    <div class="section-label">員工總覽</div>
+    <div class="card"><div class="card-inner" style="font-size:11px;color:var(--text-soft);line-height:1.6">
+這裡顯示所有員工，包含已經正式離職的歷史員工（狀態徽章會顯示待到職／在職中／留停中／離職中／已離職）。留停／離職都要用下面的專用按鈕辦理，才會同時留下正確的歷史紀錄；上面「員工」頁籤的狀態欄位只用來修正明顯的資料誤植，不要拿來辦理留停或離職。
+    </div></div>
+    <div class="card"><div id="emp-directory-list"><div class="empty-state">載入中…</div></div></div>
   </div>
 
   <!-- ══ 公司總覽 ══ -->
@@ -990,6 +1038,8 @@ body{font-family:'M PLUS Rounded 1c',-apple-system,sans-serif;background:var(--b
   </div>
 </div>
 
+<div id="terms-drawer-root"></div>
+
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbw1KsPKfBtM6DYADYMbAzkqumwe8FHf038054MRHQT8QcasB_WcVoL8MfJTFwEWJCvkxg/exec';
 
@@ -1126,6 +1176,31 @@ function leaveIntervalsForDate(sh,leaveRowsForDay,dateStr){
 }
 // 員工管理表單的班別下拉選單用；管理頁「系統設定」載入後會覆寫成實際設定的班別名稱
 let shiftNames={ A:'班別A（9:00-9:30彈性上班）', B:'班別B（8:30-9:00彈性上班）' };
+
+// ── Attendance UI Foundation：統一SVG icon（lucide風格：24x24 viewBox、圓角線條），
+// 給任用條件／排班／工時這幾個新頁面用，不動既有頁面的emoji（避免全站大改版）。
+// 裝飾用途才允許icon-only（例如關閉/收合），需要辨識操作意圖的地方一律icon+文字。
+const ICON_PATHS={
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  wallet:'<path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3"/><path d="M3 7v10a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1h-4a2 2 0 0 0 0 4h5"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  chevronDown:'<path d="M6 9l6 6 6-6"/>',
+  chevronUp:'<path d="M6 15l6-6 6 6"/>',
+  alertCircle:'<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>',
+  checkCircle:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+  x:'<path d="M18 6L6 18M6 6l12 12"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+function icon(name, opts){
+  opts=opts||{};
+  const size=opts.size||18;
+  const cls=opts.cls?('icon '+opts.cls):'icon';
+  const label=opts.label;
+  const path=ICON_PATHS[name]||'';
+  return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 24 24"${label?` role="img" aria-label="${label}"`:' aria-hidden="true"'}>${path}</svg>`;
+}
 
 // ── GPS ────────────────────────────────────────────────────────
 let currentGPS=null, gpsWatcher=null, currentMode='辦公室';
@@ -2355,6 +2430,7 @@ function loadAdmin(){
   document.getElementById('payroll-overview-label').style.display=session.role>=2?'block':'none';
   document.getElementById('payroll-overview-card').style.display=session.role>=2?'block':'none';
   document.getElementById('emp-manage-section').style.display=session.role>=2?'block':'none';
+  document.getElementById('tab-directory').style.display=session.role>=2?'block':'none';
   if(session.role>=2){ loadPayrollMonthsHistory(); loadEmpManageList(); }
   loadAdminAttendance();
   loadAdminLeaveList();
@@ -2378,12 +2454,13 @@ function loadAdmin(){
 function switchAdminSub(sub, btn){
   document.querySelectorAll('#screen-admin .mode-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['review','manage','companyoverview','leavegrant','latemanage','settings','reports'].forEach(s=>{
+  ['review','manage','directory','companyoverview','leavegrant','latemanage','settings','reports'].forEach(s=>{
     document.getElementById('admin-sub-'+s).style.display = s===sub ? 'block' : 'none';
   });
   if(sub==='leavegrant'){ loadLeaveGrantList(); onLeaveGrantTypeChange(); }
   if(sub==='companyoverview'){ initCompanyOverview(); }
   if(sub==='latemanage'){ initLateManage(); }
+  if(sub==='directory'){ loadEmployeeDirectory(); }
 }
 
 // 今日出勤（從後端撈所有人今日打卡）
@@ -2887,8 +2964,11 @@ function renderEmpEditForm(e){
     <div><div class="form-label-sm">Email</div><input type="email" class="form-input" id="ee-email-${e.eid}" value="${e.email||''}"></div>
     <div class="form-row-2">
       <div><div class="form-label-sm">到職日</div><input type="date" class="form-input" id="ee-hire-${e.eid}" value="${(e.hire||'').replace(/\//g,'-')}"></div>
-      <div><div class="form-label-sm">在職狀態</div><select class="form-select" id="ee-status-${e.eid}">
+      <div><div class="form-label-sm">在職狀態（僅供修正資料誤植，辦理留停／離職請到「員工總覽」）</div><select class="form-select" id="ee-status-${e.eid}">
+        <option value="待到職" ${e.status==='待到職'?'selected':''}>待到職</option>
         <option value="在職中" ${e.status==='在職中'?'selected':''}>在職中</option>
+        <option value="留停中" ${e.status==='留停中'?'selected':''}>留停中</option>
+        <option value="離職中" ${e.status==='離職中'?'selected':''}>離職中</option>
         <option value="已離職" ${e.status==='已離職'?'selected':''}>已離職</option>
       </select></div>
     </div>
@@ -2938,6 +3018,371 @@ async function submitUpdateEmployee(eid){
     populateEmpQuerySelect();
     loadEmpManageList();
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+// ── 員工總覽：任用狀態(待到職/在職中/留停中/離職中)＋留停/離職辦理 ──────
+const EMP_STATUS_COLOR={待到職:'#4a7fd6',在職中:'#2a7a5a',留停中:'#b58900',離職中:'#bd898e',已離職:'#7a7875'};
+let empDirectoryList=[], empDirectoryExpanded=null;
+async function loadEmployeeDirectory(){
+  const el=document.getElementById('emp-directory-list');
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const result=await api('get_employee_directory');
+    empDirectoryList=result.employees||[];
+    renderEmployeeDirectory();
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+}
+function renderEmployeeDirectory(){
+  const el=document.getElementById('emp-directory-list');
+  if(!empDirectoryList.length){ el.innerHTML='<div class="empty-state">沒有任用中的員工</div>'; return; }
+  el.innerHTML=empDirectoryList.map(e=>{
+    const expanded=empDirectoryExpanded===e.eid;
+    const color=EMP_STATUS_COLOR[e.effectiveEmploymentStatus]||'#7a7875';
+    return `<div class="settings-row" style="cursor:pointer;flex-direction:column;align-items:stretch" onclick="toggleEmpDirectoryRow('${e.eid}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:700">${e.name}（${e.eid}）<span style="color:${color};font-size:10px;border:1px solid ${color};border-radius:4px;padding:1px 5px;margin-left:6px">${e.effectiveEmploymentStatus}</span>${e.accountStatus&&e.accountStatus!=='ACTIVE'?`<span style="color:var(--rose);font-size:10px">· 帳號${e.accountStatus==='DISABLED'?'已停用':'已停權'}</span>`:''}</div>
+          <div style="font-size:11px;color:var(--text-soft)">${e.dept||''} ${e.title||''}</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-soft)">${expanded?'▲':'▼'}</div>
+      </div>
+      ${expanded?renderEmpDirectoryDetail(e):''}
+    </div>`;
+  }).join('');
+}
+function toggleEmpDirectoryRow(eid){
+  empDirectoryExpanded=empDirectoryExpanded===eid?null:eid;
+  renderEmployeeDirectory();
+}
+function renderEmpDirectoryDetail(e){
+  let body='';
+  if(e.effectiveEmploymentStatus==='已離職'){
+    body=`<div style="font-size:12px">離職類型：${e.terminationType||'—'}</div>
+      <div style="font-size:12px">生效時間：${e.terminationEffectiveAt||'—'}</div>
+      <div style="font-size:12px">原因：${e.terminationReason||'—'}</div>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:4px">這是歷史員工，已經正式離職，不提供留停／離職辦理功能。</div>`;
+  } else if(e.effectiveEmploymentStatus==='留停中'){
+    body=`<div style="font-size:12px">留停類型：${e.leaveOfAbsenceType||'—'}</div>
+      <div style="font-size:12px">開始日期：${e.leaveOfAbsenceStartAt||'—'}　預計結束：${e.leaveOfAbsencePlannedEndAt||'—'}</div>
+      <div class="form-row-2" style="margin-top:6px">
+        <div><div class="form-label-sm">實際結束日期</div><input type="date" class="form-input" id="loa-end-${e.eid}"></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn-secondary" onclick="submitEndLoa('${e.eid}')">結束留停</button></div>
+      </div>
+      <div class="form-msg" id="loa-msg-${e.eid}"></div>`;
+  } else if(e.effectiveEmploymentStatus==='離職中'){
+    body=`<div style="font-size:12px">離職類型：${e.terminationType||'—'}</div>
+      <div style="font-size:12px">生效時間：${e.terminationEffectiveAt||'—'}</div>
+      <div style="font-size:12px">原因：${e.terminationReason||'—'}</div>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:4px">生效時間到達後，系統會自動視為已離職（不需要另外操作），可以打卡/請假/加班等權限也會自動關閉。</div>`;
+  } else {
+    body=`<div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px">開始留停</div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">留停類型</div><input type="text" class="form-input" id="loa-type-${e.eid}" placeholder="例如育嬰留停"></div>
+          <div><div class="form-label-sm">預計結束日期</div><input type="date" class="form-input" id="loa-planned-end-${e.eid}"></div>
+        </div>
+        <input type="text" class="form-input" id="loa-reason-${e.eid}" placeholder="原因（選填）" style="margin-top:8px">
+        <button class="btn-secondary" style="margin-top:8px" onclick="submitStartLoa('${e.eid}')">開始留停</button>
+        <div class="form-msg" id="loa-msg-${e.eid}"></div>
+      </div>
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px">辦理離職</div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">離職類型</div><select class="form-select" id="term-type-${e.eid}">
+            <option value="自請離職">自請離職</option><option value="合意終止">合意終止</option>
+            <option value="資遣">資遣</option><option value="懲戒性終止">懲戒性終止</option>
+            <option value="定期契約期滿">定期契約期滿</option><option value="退休">退休</option>
+            <option value="死亡">死亡</option><option value="其他">其他</option>
+          </select></div>
+          <div><div class="form-label-sm">生效時間</div><input type="datetime-local" class="form-input" id="term-effective-${e.eid}"></div>
+        </div>
+        <input type="text" class="form-input" id="term-reason-${e.eid}" placeholder="原因（選填）" style="margin-top:8px">
+        <input type="text" class="form-input" id="term-legal-${e.eid}" placeholder="法源依據（選填，例如勞基法第11條）" style="margin-top:8px">
+        <button class="btn-secondary" style="margin-top:8px" onclick="submitTerminateEmployee('${e.eid}')">辦理離職</button>
+        <div class="form-msg" id="term-msg-${e.eid}"></div>
+      </div>
+    </div>`;
+  }
+  const termsTrigger=`<button class="action-btn icon-btn" style="width:auto;padding:8px 12px;border-radius:var(--radius-sm);margin-bottom:12px" onclick="event.stopPropagation();openEmpTermsDrawer('${e.eid}','${e.name}')">${icon('wallet')} 任用條件與排班</button>`;
+  return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${termsTrigger}${body}</div>`;
+}
+async function submitStartLoa(eid){
+  const msg=document.getElementById('loa-msg-'+eid);
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('start_leave_of_absence',{
+      targetEid:eid,
+      loaType:document.getElementById('loa-type-'+eid).value.trim(),
+      plannedEndAt:document.getElementById('loa-planned-end-'+eid).value.replace(/-/g,'/'),
+      reason:document.getElementById('loa-reason-'+eid).value.trim(),
+    });
+    showToast('✓ '+result.message);
+    loadEmployeeDirectory();
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+async function submitEndLoa(eid){
+  const msg=document.getElementById('loa-msg-'+eid);
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('end_leave_of_absence',{
+      targetEid:eid,
+      actualEndAt:document.getElementById('loa-end-'+eid).value.replace(/-/g,'/'),
+    });
+    showToast('✓ '+result.message);
+    loadEmployeeDirectory();
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+async function submitTerminateEmployee(eid){
+  const msg=document.getElementById('term-msg-'+eid);
+  const effectiveVal=document.getElementById('term-effective-'+eid).value;
+  if(!effectiveVal){ msg.textContent='請填寫生效時間'; msg.className='form-msg err'; return; }
+  if(!confirm('確定要辦理離職嗎？生效時間到達後會自動關閉打卡/請假/加班等權限，此操作請謹慎確認。')) return;
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('terminate_employee',{
+      targetEid:eid,
+      terminationType:document.getElementById('term-type-'+eid).value,
+      terminationEffectiveAt:effectiveVal,
+      terminationReason:document.getElementById('term-reason-'+eid).value.trim(),
+      terminationLegalBasis:document.getElementById('term-legal-'+eid).value.trim(),
+    });
+    showToast('✓ '+result.message);
+    loadEmployeeDirectory();
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+// ── 任用條件與排班 Drawer（薪資條件／排班／工時摘要三個內部頁籤）──────
+// 用drawer而不是塞進員工總覽的展開列，避免那個列表因為新增這一大塊資訊變得更擁擠；
+// drawer有自己獨立的state，不會因為外層員工總覽重新render而被清掉。
+const WORKER_CATEGORY_LABEL={FULL_TIME:'正職',PART_TIME:'兼職',STUDENT_WORKER:'工讀生'};
+const PAY_SCHEME_LABEL={FULL_TIME_MONTHLY:'月薪制',HOURLY:'時薪制',PART_TIME_FIXED_MONTHLY:'固定月薪'};
+const SCHEDULE_MODEL_LABEL={FIXED_SHIFT:'固定班別',ROSTER:'排班制'};
+let termsDrawer=null;
+function mondayOf(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); return x; }
+function fmtYmd(d){ return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
+function addDaysYmd(dateStr,n){ const [y,m,d]=dateStr.split('/').map(Number); const dt=new Date(y,m-1,d+n); return fmtYmd(dt); }
+function openEmpTermsDrawer(eid,name){
+  termsDrawer={eid,name,tab:'terms',termsOverview:null,schedules:null,weekStart:fmtYmd(mondayOf(new Date())),monthSummary:null,month:todayKey().slice(0,7),showNewTerms:false,showNewSchedule:false};
+  renderTermsDrawer();
+  loadTermsDrawerTab('terms');
+}
+function closeTermsDrawer(){ termsDrawer=null; document.getElementById('terms-drawer-root').innerHTML=''; }
+function switchTermsDrawerTab(tab){
+  termsDrawer.tab=tab; termsDrawer.showNewTerms=false; termsDrawer.showNewSchedule=false;
+  renderTermsDrawer();
+  loadTermsDrawerTab(tab);
+}
+async function loadTermsDrawerTab(tab){
+  const body=document.getElementById('terms-drawer-body');
+  if(!body) return;
+  if(tab==='terms'){
+    body.innerHTML='<div class="empty-state">載入中…</div>';
+    try{ termsDrawer.termsOverview=await api('get_employment_terms',{targetEid:termsDrawer.eid}); }
+    catch(e){ body.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; return; }
+  } else if(tab==='roster'){
+    body.innerHTML='<div class="empty-state">載入中…</div>';
+    try{
+      const weekEndExclusive=addDaysYmd(termsDrawer.weekStart,7);
+      const r=await api('get_work_schedules',{targetEid:termsDrawer.eid,startDate:termsDrawer.weekStart,endDate:weekEndExclusive});
+      termsDrawer.schedules=r.schedules||[];
+    }catch(e){ body.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; return; }
+  } else if(tab==='hours'){
+    body.innerHTML='<div class="empty-state">載入中…</div>';
+    try{ termsDrawer.monthSummary=await api('get_roster_month_summary',{targetEid:termsDrawer.eid,month:termsDrawer.month}); }
+    catch(e){ body.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; return; }
+  }
+  renderTermsDrawerBody();
+}
+function renderTermsDrawer(){
+  const root=document.getElementById('terms-drawer-root');
+  if(!termsDrawer){ root.innerHTML=''; return; }
+  const d=termsDrawer;
+  root.innerHTML=`<div class="drawer-overlay" onclick="if(event.target===this)closeTermsDrawer()">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <div class="section-title">${d.name} · 任用條件與排班</div>
+        <button class="icon-btn" aria-label="關閉" onclick="closeTermsDrawer()">${icon('x')}</button>
+      </div>
+      <div class="mode-tabs" style="margin-bottom:14px">
+        <button class="mode-tab ${d.tab==='terms'?'active':''}" onclick="switchTermsDrawerTab('terms')">${icon('wallet',{size:15})} 薪資條件</button>
+        <button class="mode-tab ${d.tab==='roster'?'active':''}" onclick="switchTermsDrawerTab('roster')">${icon('calendar',{size:15})} 排班</button>
+        <button class="mode-tab ${d.tab==='hours'?'active':''}" onclick="switchTermsDrawerTab('hours')">${icon('clock',{size:15})} 工時摘要</button>
+      </div>
+      <div id="terms-drawer-body"><div class="empty-state">載入中…</div></div>
+    </div>
+  </div>`;
+}
+function renderTermsDrawerBody(){
+  const body=document.getElementById('terms-drawer-body');
+  if(!body || !termsDrawer) return;
+  if(termsDrawer.tab==='terms') body.innerHTML=renderTermsTab();
+  else if(termsDrawer.tab==='roster') body.innerHTML=renderRosterTab();
+  else body.innerHTML=renderHoursTab();
+}
+function termsVersionSummary(t){
+  if(!t || t.isDefault) return `<div class="body-text">${WORKER_CATEGORY_LABEL.FULL_TIME}・${PAY_SCHEME_LABEL.FULL_TIME_MONTHLY}・${SCHEDULE_MODEL_LABEL.FIXED_SHIFT}<span class="meta-text">（尚未設定任用條件版本，套用預設值）</span></div>`;
+  const rangeText=`${t.effectiveFrom?Utilities_fmt(t.effectiveFrom):''} – ${t.effectiveTo?Utilities_fmt(t.effectiveTo):'（無結束日）'}`;
+  let payLine='';
+  if(t.payScheme==='HOURLY') payLine=`時薪：${t.hourlyRate!=null?('$'+t.hourlyRate):'（未設定）'}`;
+  else if(t.payScheme==='PART_TIME_FIXED_MONTHLY') payLine=`固定月薪：$${t.monthlyBaseSalary!=null?t.monthlyBaseSalary:'—'}　每月工時上限：${t.agreedMonthlyHoursCap!=null?t.agreedMonthlyHoursCap+'h':'—'}`;
+  return `<div class="body-text" style="font-weight:600">${WORKER_CATEGORY_LABEL[t.workerCategory]||t.workerCategory}・${PAY_SCHEME_LABEL[t.payScheme]||t.payScheme}・${SCHEDULE_MODEL_LABEL[t.scheduleModel]||t.scheduleModel}</div>
+    <div class="meta-text" style="margin-top:2px">${rangeText}</div>
+    ${payLine?`<div class="meta-text" style="margin-top:2px">${payLine}</div>`:''}`;
+}
+// effectiveFrom/effectiveTo 從後端回來是ISO時間字串（Date被JSON序列化），這裡只取日期部分顯示
+function Utilities_fmt(isoStr){ const d=new Date(isoStr); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
+function renderTermsTab(){
+  const ov=termsDrawer.termsOverview;
+  if(!ov) return '<div class="empty-state">載入失敗</div>';
+  const newForm=termsDrawer.showNewTerms?`<div class="card" style="margin-top:12px"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
+    <div class="section-title" style="font-size:15px">新增條件版本</div>
+    <div class="form-row-2">
+      <div><div class="form-label-sm">Worker Category</div><select class="form-select" id="et-workerCategory">
+        <option value="FULL_TIME">正職 FULL_TIME</option><option value="PART_TIME" selected>兼職 PART_TIME</option><option value="STUDENT_WORKER">工讀生 STUDENT_WORKER</option>
+      </select></div>
+      <div><div class="form-label-sm">Pay Scheme</div><select class="form-select" id="et-payScheme" onchange="onEtPaySchemeChange()">
+        <option value="HOURLY" selected>時薪 HOURLY</option><option value="PART_TIME_FIXED_MONTHLY">固定月薪 PART_TIME_FIXED_MONTHLY</option><option value="FULL_TIME_MONTHLY">正職月薪 FULL_TIME_MONTHLY</option>
+      </select></div>
+    </div>
+    <div><div class="form-label-sm">Schedule Model</div><select class="form-select" id="et-scheduleModel">
+      <option value="ROSTER" selected>排班制 ROSTER</option><option value="FIXED_SHIFT">固定班別 FIXED_SHIFT</option>
+    </select></div>
+    <div class="form-row-2" id="et-hourly-row">
+      <div><div class="form-label-sm">Hourly Rate（時薪）</div><input type="number" class="form-input" id="et-hourlyRate" placeholder="HR實際輸入"></div>
+      <div></div>
+    </div>
+    <div class="form-row-2" id="et-fixed-row" style="display:none">
+      <div><div class="form-label-sm">Fixed Monthly Salary（固定月薪）</div><input type="number" class="form-input" id="et-monthlyBaseSalary" placeholder="例如 12000"></div>
+      <div><div class="form-label-sm">Monthly Hours Cap（每月工時上限）</div><input type="number" class="form-input" id="et-agreedMonthlyHoursCap" placeholder="例如 48"></div>
+    </div>
+    <div class="form-row-2">
+      <div><div class="form-label-sm">Effective From（開始生效）</div><input type="date" class="form-input" id="et-effectiveFrom"></div>
+      <div><div class="form-label-sm">Effective To（結束生效，選填＝無結束日）</div><input type="date" class="form-input" id="et-effectiveTo"></div>
+    </div>
+    <div class="meta-text">若填了開始生效日但沒填結束生效日，系統會在你之後新增下一個版本時，自動把這一版的結束生效日接上去，不用手動回來改。</div>
+    <button class="btn-primary" onclick="submitCreateEmploymentTerms()">建立版本</button>
+    <div class="form-msg" id="et-msg"></div>
+  </div></div>`:'';
+  return `
+    <div><div class="meta-text" style="margin-bottom:6px">目前生效</div>${termsVersionSummary(ov.current)}</div>
+    ${ov.scheduled&&ov.scheduled.length?`<div style="margin-top:16px"><div class="meta-text" style="margin-bottom:6px">已排程</div>${ov.scheduled.map(t=>`<div style="margin-bottom:8px">${termsVersionSummary(t)}</div>`).join('')}</div>`:''}
+    ${ov.history&&ov.history.length?`<div style="margin-top:16px"><div class="meta-text" style="margin-bottom:6px">歷史版本</div>${ov.history.map(t=>`<div class="timeline-row"><div style="flex:1">${termsVersionSummary(t)}</div></div>`).join('')}</div>`:''}
+    <button class="action-btn btn-secondary" style="margin-top:16px;width:auto;padding:10px 16px" onclick="termsDrawer.showNewTerms=!termsDrawer.showNewTerms;renderTermsDrawerBody();if(termsDrawer.showNewTerms)onEtPaySchemeChange()">${icon('plus',{size:15})} 新增條件版本</button>
+    ${newForm}
+  `;
+}
+function onEtPaySchemeChange(){
+  const scheme=document.getElementById('et-payScheme').value;
+  document.getElementById('et-hourly-row').style.display=scheme==='HOURLY'?'flex':'none';
+  document.getElementById('et-fixed-row').style.display=scheme==='PART_TIME_FIXED_MONTHLY'?'flex':'none';
+}
+async function submitCreateEmploymentTerms(){
+  const msg=document.getElementById('et-msg');
+  const effectiveFrom=document.getElementById('et-effectiveFrom').value.replace(/-/g,'/');
+  if(!effectiveFrom){ msg.textContent='請填寫開始生效日期'; msg.className='form-msg err'; return; }
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('create_employment_terms',{
+      targetEid:termsDrawer.eid,
+      workerCategory:document.getElementById('et-workerCategory').value,
+      payScheme:document.getElementById('et-payScheme').value,
+      scheduleModel:document.getElementById('et-scheduleModel').value,
+      hourlyRate:document.getElementById('et-hourlyRate').value,
+      monthlyBaseSalary:document.getElementById('et-monthlyBaseSalary').value,
+      agreedMonthlyHoursCap:document.getElementById('et-agreedMonthlyHoursCap').value,
+      effectiveFrom,
+      effectiveTo:document.getElementById('et-effectiveTo').value.replace(/-/g,'/'),
+    });
+    showToast('✓ '+result.message);
+    termsDrawer.showNewTerms=false;
+    loadTermsDrawerTab('terms');
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+const ROSTER_STATUS_LABEL={ON_TIME:'準時',NEEDS_REVIEW:'待確認',IN_PROGRESS:'進行中',UNSCHEDULED_ATTENDANCE:'未排班出勤・待確認',PENDING:'待確認'};
+const ROSTER_STATUS_PILL={ON_TIME:'success',NEEDS_REVIEW:'warning',IN_PROGRESS:'accent',UNSCHEDULED_ATTENDANCE:'danger',PENDING:'neutral'};
+function renderRosterTab(){
+  const schedules=termsDrawer.schedules||[];
+  const weekEndIncl=addDaysYmd(termsDrawer.weekStart,6);
+  const rows=schedules.map(s=>`<tr>
+    <td>${s.workDate}</td><td>${s.scheduledStartAt}–${s.scheduledEndAt}</td><td>${s.scheduledBreakMinutes}分</td><td>${s.note||'—'}</td>
+  </tr>`).join('');
+  const newForm=termsDrawer.showNewSchedule?`<div class="card" style="margin-top:12px"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
+    <div class="section-title" style="font-size:15px">新增排班</div>
+    <div><div class="form-label-sm">日期</div><input type="date" class="form-input" id="ws-workDate"></div>
+    <div class="form-row-2">
+      <div><div class="form-label-sm">開始時間</div><input type="time" class="form-input" id="ws-start"></div>
+      <div><div class="form-label-sm">結束時間</div><input type="time" class="form-input" id="ws-end"></div>
+    </div>
+    <div><div class="form-label-sm">休息分鐘</div><input type="number" class="form-input" id="ws-break" value="0"></div>
+    <input type="text" class="form-input" id="ws-note" placeholder="備註（選填）">
+    <button class="btn-primary" onclick="submitCreateWorkSchedule()">儲存排班</button>
+    <div class="form-msg" id="ws-msg"></div>
+  </div></div>`:'';
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <button class="icon-btn" aria-label="上一週" style="width:auto;padding:6px 12px" onclick="termsDrawer.weekStart=addDaysYmd(termsDrawer.weekStart,-7);loadTermsDrawerTab('roster')">‹ 上一週</button>
+      <div class="meta-text">${termsDrawer.weekStart} – ${weekEndIncl}</div>
+      <button class="icon-btn" aria-label="下一週" style="width:auto;padding:6px 12px" onclick="termsDrawer.weekStart=addDaysYmd(termsDrawer.weekStart,7);loadTermsDrawerTab('roster')">下一週 ›</button>
+    </div>
+    <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>日期</th><th>排班</th><th>休息</th><th>備註</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:var(--text-soft)">本週尚未排班</td></tr>'}</tbody>
+    </table></div>
+    <button class="action-btn btn-secondary" style="margin-top:16px;width:auto;padding:10px 16px" onclick="termsDrawer.showNewSchedule=!termsDrawer.showNewSchedule;renderTermsDrawerBody()">${icon('plus',{size:15})} 新增排班</button>
+    ${newForm}
+  `;
+}
+async function submitCreateWorkSchedule(){
+  const msg=document.getElementById('ws-msg');
+  const workDate=document.getElementById('ws-workDate').value.replace(/-/g,'/');
+  if(!workDate){ msg.textContent='請填寫日期'; msg.className='form-msg err'; return; }
+  msg.textContent='處理中…'; msg.className='form-msg';
+  try{
+    const result=await api('create_work_schedule',{
+      targetEid:termsDrawer.eid, workDate,
+      scheduledStartAt:document.getElementById('ws-start').value,
+      scheduledEndAt:document.getElementById('ws-end').value,
+      scheduledBreakMinutes:document.getElementById('ws-break').value,
+      note:document.getElementById('ws-note').value.trim(),
+    });
+    showToast('✓ '+result.message);
+    termsDrawer.showNewSchedule=false;
+    loadTermsDrawerTab('roster');
+  }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+function renderHoursTab(){
+  const s=termsDrawer.monthSummary;
+  if(!s) return '<div class="empty-state">載入失敗</div>';
+  const monthInputVal=termsDrawer.month.replace('/','-');
+  let payTile='';
+  if(s.mixedTermsInMonth){
+    payTile=`<div class="stat-tile" style="flex-basis:100%"><div class="stat-label">薪資條件</div><div class="body-text">本月薪資條件有異動，請分段確認，暫不顯示合併預估金額</div></div>`;
+  } else if(s.payScheme==='HOURLY'){
+    payTile=`<div class="stat-tile"><div class="stat-label">預估一般工資 · 尚未薪資結算</div><div class="stat-value">${s.estimatedPay!=null?('$'+s.estimatedPay):'（尚未設定時薪）'}</div></div>`;
+  } else if(s.payScheme==='PART_TIME_FIXED_MONTHLY'){
+    payTile=`<div class="stat-tile"><div class="stat-label">固定月薪</div><div class="stat-value">$${s.monthlyBaseSalary!=null?s.monthlyBaseSalary:'—'}</div></div>
+      <div class="stat-tile"><div class="stat-label">${s.recognizedHours} / ${s.agreedMonthlyHoursCap!=null?s.agreedMonthlyHoursCap:'—'}h</div><div class="stat-value" style="font-size:14px;font-weight:500">每月工時上限</div></div>`;
+  }
+  const overCapNote=s.overCap?`<div class="status-pill warning" style="margin-top:10px">已超過本月約定工時上限，請HR確認</div>`:'';
+  const dayRows=(s.days||[]).map(d=>`<tr>
+    <td>${d.date}</td><td>${d.inTime||'—'}${d.outTime?' – '+d.outTime:''}</td>
+    <td>${d.scheduledMinutes!=null?Math.round(d.scheduledMinutes/6)/10+'h':'—'}</td>
+    <td>${d.recognizedWorkMinutes!=null?Math.round(d.recognizedWorkMinutes/6)/10+'h':'—'}</td>
+    <td><span class="status-pill ${ROSTER_STATUS_PILL[d.status]||'neutral'}">${ROSTER_STATUS_LABEL[d.status]||d.status}${d.extraMinutes>0?`・超出排班${d.extraMinutes}分鐘`:''}</span></td>
+  </tr>`).join('');
+  return `
+    <input type="month" class="form-input" value="${monthInputVal}" style="margin-bottom:12px" onchange="termsDrawer.month=this.value.replace('-','/');loadTermsDrawerTab('hours')">
+    <div class="stat-row">
+      <div class="stat-tile"><div class="stat-label">本月排班時數</div><div class="stat-value">${s.scheduledHours}h</div></div>
+      <div class="stat-tile"><div class="stat-label">本月認列工作時數</div><div class="stat-value">${s.recognizedHours}h</div></div>
+      <div class="stat-tile"><div class="stat-label">本月待確認</div><div class="stat-value">${s.pendingDayCount}天</div></div>
+    </div>
+    <div class="stat-row" style="margin-top:10px">${payTile}</div>
+    ${overCapNote}
+    <div style="overflow-x:auto;margin-top:16px"><table class="data-table"><thead><tr><th>日期</th><th>打卡</th><th>排班</th><th>認列</th><th>狀態</th></tr></thead>
+      <tbody>${dayRows||'<tr><td colspan="5" style="text-align:center;color:var(--text-soft)">本月尚無資料</td></tr>'}</tbody>
+    </table></div>
+  `;
 }
 
 // ── 員工出勤查詢：預設收合，只顯示筆數摘要，點擊才展開細節 ──────
@@ -3241,8 +3686,11 @@ async function loadLateBatchTriggerStatus(){
   try{
     const result=await api('get_late_batch_trigger_status');
     const s=result.status;
+    const triggerLine = s.triggerCount===null
+      ? `<div style="color:var(--amber,#b58900)">⚠ 沒有權限讀取觸發條件清單，無法確認trigger是否存在。請到Apps Script編輯器確認manifest含script.scriptapp授權、部署「執行身分」為「我」，並手動執行一次setupLateAssessmentTriggers()以觸發授權同意畫面${s.triggerAuthError?`（${s.triggerAuthError}）`:''}</div>`
+      : `<div>trigger數量：<b style="color:${s.triggerHealthy?'var(--green)':'var(--rose)'}">${s.triggerCount}</b>${s.triggerHealthy?'（正常，預期2個）':'（異常，預期2個，請重新執行setupLateAssessmentTriggers()）'}</div>`;
     el.innerHTML=`
-      <div>trigger數量：<b style="color:${s.triggerHealthy?'var(--green)':'var(--rose)'}">${s.triggerCount}</b>${s.triggerHealthy?'（正常，預期2個）':'（異常，預期2個，請重新執行setupLateAssessmentTriggers()）'}</div>
+      ${triggerLine}
       <div>最後執行時間：${s.lastRunAt||'尚未執行過'}</div>
       <div>最後成功時間：${s.lastSuccessAt||'—'}</div>
       <div>最後失敗時間：${s.lastFailAt||'—'}</div>
