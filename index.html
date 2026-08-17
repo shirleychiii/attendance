@@ -746,13 +746,10 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
           <div><div class="form-label-sm">職稱</div><input type="text" id="ec-title" class="form-input"></div>
         </div>
         <div class="form-row-2">
-          <div><div class="form-label-sm">到職日</div><input type="date" id="ec-hire" class="form-input"></div>
+          <div><div class="form-label-sm">到職日</div><input type="date" id="ec-hire" class="form-input" onchange="document.getElementById('ec-effectiveFrom').value=this.value"></div>
           <div><div class="form-label-sm">權限等級</div><select id="ec-role" class="form-select"><option value="0">員工</option><option value="1">部門主管</option><option value="2">最高管理者</option></select></div>
         </div>
-        <div class="form-row-2">
-          <div><div class="form-label-sm">班別</div><select id="ec-shift" class="form-select" onfocus="populateShiftSelect('ec-shift')"><option value="A">班別A</option><option value="B">班別B</option></select></div>
-          <div><div class="form-label-sm">直屬主管（用於遲到/面談/PIP權限判斷）</div><select id="ec-manager" class="form-select" onfocus="populateManagerSelect('ec-manager')"><option value="">（無）</option></select></div>
-        </div>
+        <div><div class="form-label-sm">直屬主管（用於遲到/面談/PIP權限判斷）</div><select id="ec-manager" class="form-select" onfocus="populateManagerSelect('ec-manager')"><option value="">（無）</option></select></div>
         <div class="form-row-2">
           <div><div class="form-label-sm">身分證字號</div><input type="text" id="ec-nid" class="form-input" placeholder="供勞健保申報用" oninput="updateGenderPreview('ec-nid','ec-gender-preview')"></div>
           <div><div class="form-label-sm">出生年月日</div><input type="date" id="ec-dob" class="form-input"></div>
@@ -762,7 +759,34 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
         <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="ec-canManageAttendance"> 考勤管理權限（可查看全公司遲到統計/評估、處理主管待辦）</label>
         <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="ec-canManagePip"> PIP管理權限（可查看全公司面談/PIP案件內容）</label>
         <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="ec-isHrAdmin"> HR最高管理權限（相當於同時擁有以上兩項）</label>
-        <button class="btn-primary" onclick="submitCreateEmployee()">新增員工</button>
+
+        <div style="font-size:13px;font-weight:700;margin-top:6px;border-top:1px solid var(--border);padding-top:12px">任用與計薪條件</div>
+        <div style="font-size:11px;color:var(--text-soft)">會在建立員工的同時建立第一筆任用條件版本（EMPLOYMENT_TERMS）——之後如果這位員工的計薪方式有變（例如8月時薪、9月轉固定月薪），到「員工總覽」該員工展開列的「任用條件與排班」再新增下一個版本即可，新版本不會覆蓋這一筆。</div>
+        <div class="form-row-2">
+          <div><div class="form-label-sm">人員類型</div><select id="ec-workerCategory" class="form-select" onchange="onEcWorkerCategoryChange()">
+            <option value="FULL_TIME">正職 FULL_TIME</option>
+            <option value="PART_TIME">兼職 PART_TIME</option>
+            <option value="STUDENT_WORKER">工讀生 STUDENT_WORKER</option>
+          </select></div>
+          <div><div class="form-label-sm">計薪方式</div><select id="ec-payScheme" class="form-select" onchange="onEcPaySchemeChange()"></select></div>
+        </div>
+        <div><div class="form-label-sm">排班模式</div><select id="ec-scheduleModel" class="form-select" onchange="onEcScheduleModelChange()">
+          <option value="FIXED_SHIFT">固定班別 FIXED_SHIFT</option>
+          <option value="ROSTER">排班制 ROSTER</option>
+        </select></div>
+        <div id="ec-shift-field"><div class="form-label-sm">班別</div><select id="ec-shift" class="form-select" onfocus="populateShiftSelect('ec-shift')"><option value="A">班別A</option><option value="B">班別B</option></select></div>
+        <div id="ec-roster-note" style="display:none;font-size:12px;color:var(--deep-blue);background:var(--blue-lo);padding:10px 12px;border-radius:10px">此人員採排班制，不適用固定A/B班——建立員工後會直接帶你設定第一筆排班。</div>
+        <div class="form-row-2" id="ec-hourly-row">
+          <div><div class="form-label-sm">Hourly Rate（時薪）</div><input type="number" class="form-input" id="ec-hourlyRate" placeholder="HR實際輸入"></div>
+          <div></div>
+        </div>
+        <div class="form-row-2" id="ec-fixed-row" style="display:none">
+          <div><div class="form-label-sm">Fixed Monthly Salary（固定月薪）</div><input type="number" class="form-input" id="ec-monthlyBaseSalary" placeholder="例如 12000"></div>
+          <div><div class="form-label-sm">Monthly Hours Cap（每月工時上限）</div><input type="number" class="form-input" id="ec-agreedMonthlyHoursCap" placeholder="例如 48"></div>
+        </div>
+        <div><div class="form-label-sm">任用條件生效日</div><input type="date" class="form-input" id="ec-effectiveFrom"></div>
+
+        <button class="btn-primary" id="ec-submit-btn" onclick="submitCreateEmployee()">新增員工</button>
         <div class="form-msg" id="ec-msg"></div>
       </div></div>
       <div class="card"><div id="emp-manage-list"><div class="empty-state">載入中…</div></div></div>
@@ -3213,13 +3237,52 @@ async function populateManagerSelect(selId,currentVal){
 }
 function toggleEmpCreateForm(){
   const el=document.getElementById('emp-create-form');
-  el.style.display=el.style.display==='none'?'block':'none';
+  const opening=el.style.display==='none';
+  el.style.display=opening?'block':'none';
+  if(opening) onEcWorkerCategoryChange();
+}
+// 「新增員工」表單的任用與計薪條件——計薪方式選項依人員類型而定，跟員工詳情頁「任用條件與
+// 排班」drawer裡「新增條件版本」用的是同一套PAY_SCHEME/SCHEDULE_MODEL概念，只是這裡多了
+// 「依人員類型過濾選項」跟「排班模式決定要不要顯示班別A/B」兩層條件式UI。
+const EC_PAY_SCHEME_OPTIONS_BY_CATEGORY={
+  FULL_TIME:[{v:'FULL_TIME_MONTHLY',l:'正職月薪 FULL_TIME_MONTHLY'}],
+  PART_TIME:[{v:'HOURLY',l:'時薪 HOURLY'},{v:'PART_TIME_FIXED_MONTHLY',l:'固定月薪 PART_TIME_FIXED_MONTHLY'}],
+  STUDENT_WORKER:[{v:'HOURLY',l:'時薪 HOURLY'},{v:'PART_TIME_FIXED_MONTHLY',l:'固定月薪 PART_TIME_FIXED_MONTHLY'}],
+};
+function onEcWorkerCategoryChange(){
+  const cat=document.getElementById('ec-workerCategory').value;
+  const sel=document.getElementById('ec-payScheme');
+  sel.innerHTML=EC_PAY_SCHEME_OPTIONS_BY_CATEGORY[cat].map(o=>`<option value="${o.v}">${o.l}</option>`).join('');
+  // 人員類型變了就給排班模式一個合理預設（HR仍可自己改）：正職預設固定班別，兼職/工讀生
+  // 預設排班制，跟今晚實際案例（PART_TIME一定是ROSTER）一致。
+  document.getElementById('ec-scheduleModel').value=cat==='FULL_TIME'?'FIXED_SHIFT':'ROSTER';
+  onEcPaySchemeChange();
+  onEcScheduleModelChange();
+}
+function onEcPaySchemeChange(){
+  const scheme=document.getElementById('ec-payScheme').value;
+  document.getElementById('ec-hourly-row').style.display=scheme==='HOURLY'?'flex':'none';
+  document.getElementById('ec-fixed-row').style.display=scheme==='PART_TIME_FIXED_MONTHLY'?'flex':'none';
+}
+function onEcScheduleModelChange(){
+  const model=document.getElementById('ec-scheduleModel').value;
+  document.getElementById('ec-shift-field').style.display=model==='FIXED_SHIFT'?'block':'none';
+  document.getElementById('ec-roster-note').style.display=model==='ROSTER'?'block':'none';
+  document.getElementById('ec-submit-btn').textContent=model==='ROSTER'?'儲存並設定排班':'新增員工';
 }
 async function submitCreateEmployee(){
   const msg=document.getElementById('ec-msg');
   const eid=document.getElementById('ec-eid').value.trim();
   const name=document.getElementById('ec-name').value.trim();
   if(!eid||!name){ msg.textContent='請輸入員工編號與姓名'; msg.className='form-msg err'; return; }
+  const effectiveFrom=document.getElementById('ec-effectiveFrom').value.replace(/-/g,'/');
+  if(!effectiveFrom){ msg.textContent='請填寫任用條件生效日（P0防呆：每位新員工建立時都要同時建立第一筆任用條件，避免之後漏建、被系統誤判成正職固定班別）'; msg.className='form-msg err'; return; }
+  const scheduleModel=document.getElementById('ec-scheduleModel').value;
+  const workerCategory=document.getElementById('ec-workerCategory').value;
+  // 安全gate：PART_TIME/STUDENT_WORKER在第一筆Employment Terms成功建立前，帳號建成
+  // SUSPENDED——不能登入打卡，避免「HR漏建Terms」這種資料層無法辨識的空窗期讓新人被系統
+  // 靜默當成正職A/B班。FULL_TIME不受影響，維持既有ACTIVE。
+  const initialAccountStatus=workerCategory==='FULL_TIME'?'ACTIVE':'SUSPENDED';
   msg.textContent='處理中…'; msg.className='form-msg';
   try{
     const result=await api('create_employee',{
@@ -3237,14 +3300,52 @@ async function submitCreateEmployee(){
       canManageAttendance:document.getElementById('ec-canManageAttendance').checked,
       canManagePip:document.getElementById('ec-canManagePip').checked,
       isHrAdmin:document.getElementById('ec-isHrAdmin').checked,
+      initialAccountStatus,
     });
-    msg.textContent='✓ '+result.message; msg.className='form-msg ok';
-    ['ec-eid','ec-name','ec-nick','ec-email','ec-dept','ec-title','ec-hire','ec-nid','ec-dob'].forEach(id=>document.getElementById(id).value='');
+    // 員工帳號建立成功後，緊接著建立第一筆Employment Terms版本——這兩支是分開的API呼叫
+    // （Apps Script/Sheets沒有跨呼叫的transaction），如果第二支失敗，員工其實已經建立成功了，
+    // 不能讓訊息看起來像整個操作失敗。PART_TIME/STUDENT_WORKER這時候帳號是SUSPENDED
+    // （後端剛剛才設的），要清楚告訴HR帳號目前不能登入打卡，等她補建Terms才會自動啟用。
+    let termsResult;
+    try{
+      termsResult=await api('create_employment_terms',{
+        targetEid:eid,
+        workerCategory,
+        payScheme:document.getElementById('ec-payScheme').value,
+        scheduleModel,
+        hourlyRate:document.getElementById('ec-hourlyRate').value,
+        monthlyBaseSalary:document.getElementById('ec-monthlyBaseSalary').value,
+        agreedMonthlyHoursCap:document.getElementById('ec-agreedMonthlyHoursCap').value,
+        effectiveFrom,
+        effectiveTo:'',
+      });
+    }catch(termsErr){
+      const suspendedNote=initialAccountStatus==='SUSPENDED'
+        ?'目前帳號是「任用條件設定未完成」暫停狀態，無法登入打卡，'
+        :'';
+      msg.textContent=`✓ 員工已建立，但任用條件建立失敗：${termsErr.message}（${suspendedNote}請到「員工總覽」該員工的「任用條件與排班」手動補建，補建成功後帳號會自動啟用）`;
+      msg.className='form-msg err';
+      document.getElementById('emp-query-eid').dataset.loaded='';
+      populateEmpQuerySelect();
+      loadEmpManageList();
+      return;
+    }
+    msg.textContent='✓ '+result.message+'，'+termsResult.message; msg.className='form-msg ok';
+    ['ec-eid','ec-name','ec-nick','ec-email','ec-dept','ec-title','ec-hire','ec-nid','ec-dob','ec-hourlyRate','ec-monthlyBaseSalary','ec-agreedMonthlyHoursCap','ec-effectiveFrom'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('ec-gender-preview').textContent='—';
     document.getElementById('emp-create-form').style.display='none';
     document.getElementById('emp-query-eid').dataset.loaded='';
     populateEmpQuerySelect();
     loadEmpManageList();
+    // 新人建立成功就直接帶HR去設定排班/確認條件，不要讓HR自己回去員工總覽找——尤其排班制
+    // 的新人，今天一定要能馬上排到班，這是這輪P0要接起來的關鍵一步。
+    openEmpTermsDrawer(eid, name);
+    if(scheduleModel==='ROSTER'){
+      switchTermsDrawerTab('roster');
+      termsDrawer.showNewSchedule=true;
+      termsDrawer.pendingWorkDate=effectiveFrom.replace(/\//g,'-');
+      renderTermsDrawerBody();
+    }
   }catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
 }
 
@@ -3266,7 +3367,7 @@ function renderEmpManageList(){
     return `<div class="settings-row" style="cursor:pointer;flex-direction:column;align-items:stretch" onclick="toggleEmpManageRow('${e.eid}')">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-size:13px;font-weight:700">${e.name}（${e.eid}）${e.status!=='在職中'?`<span style="color:var(--rose);font-size:10px">· ${e.status}</span>`:''}</div>
+          <div style="font-size:13px;font-weight:700">${e.name}（${e.eid}）${e.status!=='在職中'?`<span style="color:var(--rose);font-size:10px">· ${e.status}</span>`:''}${e.accountStatus==='SUSPENDED'&&e.accountStatusReason==='EMPLOYMENT_TERMS_SETUP'?`<span style="color:var(--amber);font-size:10px">· 任用條件設定未完成（帳號暫停，無法登入打卡）</span>`:e.accountStatus==='SUSPENDED'?`<span style="color:var(--rose);font-size:10px">· 帳號已停權</span>`:''}</div>
           <div style="font-size:11px;color:var(--text-soft)">${e.dept||''} ${e.title||''}</div>
         </div>
         <div style="font-size:11px;color:var(--text-soft)">${expanded?'▲':'▼'}</div>
@@ -3837,7 +3938,7 @@ function renderRosterTab(){
   </tr>`).join('');
   const newForm=termsDrawer.showNewSchedule?`<div class="card" style="margin-top:12px"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
     <div class="section-title" style="font-size:15px">新增排班</div>
-    <div><div class="form-label-sm">日期</div><input type="date" class="form-input" id="ws-workDate"></div>
+    <div><div class="form-label-sm">日期</div><input type="date" class="form-input" id="ws-workDate" value="${termsDrawer.pendingWorkDate||''}"></div>
     <div class="form-row-2">
       <div><div class="form-label-sm">開始時間</div><input type="time" class="form-input" id="ws-start"></div>
       <div><div class="form-label-sm">結束時間</div><input type="time" class="form-input" id="ws-end"></div>
