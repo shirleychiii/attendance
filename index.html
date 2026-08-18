@@ -734,7 +734,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
       <div class="card" id="emp-create-form" style="display:none"><div class="card-inner" style="display:flex;flex-direction:column;gap:10px">
         <div style="font-size:13px;font-weight:700">新增員工</div>
         <div class="form-row-2">
-          <div><div class="form-label-sm">員工編號</div><input type="text" id="ec-eid" class="form-input" placeholder="例如 H018"></div>
+          <div><div class="form-label-sm">員工編號</div><div class="form-input" id="ec-eid-display" style="background:var(--bg);color:var(--text-soft);display:flex;align-items:center">載入中…</div></div>
           <div><div class="form-label-sm">姓名</div><input type="text" id="ec-name" class="form-input"></div>
         </div>
         <div class="form-row-2">
@@ -3239,7 +3239,17 @@ function toggleEmpCreateForm(){
   const el=document.getElementById('emp-create-form');
   const opening=el.style.display==='none';
   el.style.display=opening?'block':'none';
-  if(opening) onEcWorkerCategoryChange();
+  if(opening){ onEcWorkerCategoryChange(); loadNextEidPreview(); }
+}
+async function loadNextEidPreview(){
+  const el=document.getElementById('ec-eid-display');
+  el.textContent='載入中…';
+  try{
+    const result=await api('peek_next_eid');
+    // 這只是預覽，不保證跟實際建立時拿到的號碼完全一樣（如果這段時間有別人先建立了
+    // 員工，實際號碼會往後遞增）——create_employee成功後回傳的才是真正的號碼。
+    el.textContent=`${result.nextEid}（系統產生）`;
+  }catch(e){ el.textContent='系統將自動產生'; }
 }
 // 「新增員工」表單的任用與計薪條件——計薪方式選項依人員類型而定，跟員工詳情頁「任用條件與
 // 排班」drawer裡「新增條件版本」用的是同一套PAY_SCHEME/SCHEDULE_MODEL概念，只是這裡多了
@@ -3272,9 +3282,8 @@ function onEcScheduleModelChange(){
 }
 async function submitCreateEmployee(){
   const msg=document.getElementById('ec-msg');
-  const eid=document.getElementById('ec-eid').value.trim();
   const name=document.getElementById('ec-name').value.trim();
-  if(!eid||!name){ msg.textContent='請輸入員工編號與姓名'; msg.className='form-msg err'; return; }
+  if(!name){ msg.textContent='請輸入姓名'; msg.className='form-msg err'; return; }
   const effectiveFrom=document.getElementById('ec-effectiveFrom').value.replace(/-/g,'/');
   if(!effectiveFrom){ msg.textContent='請填寫任用條件生效日（P0防呆：每位新員工建立時都要同時建立第一筆任用條件，避免之後漏建、被系統誤判成正職固定班別）'; msg.className='form-msg err'; return; }
   const scheduleModel=document.getElementById('ec-scheduleModel').value;
@@ -3285,8 +3294,10 @@ async function submitCreateEmployee(){
   const initialAccountStatus=workerCategory==='FULL_TIME'?'ACTIVE':'SUSPENDED';
   msg.textContent='處理中…'; msg.className='form-msg';
   try{
+    // 員工編號不再由這裡送出——backend會在Lock保護範圍內自動產生，回傳的result.eid
+    // 才是真正拿到的號碼（可能跟表單載入時預覽的號碼不同，如果中間有別人先建立了員工）。
     const result=await api('create_employee',{
-      eid, name,
+      name,
       nick:document.getElementById('ec-nick').value.trim(),
       dept:document.getElementById('ec-dept').value.trim(),
       title:document.getElementById('ec-title').value.trim(),
@@ -3302,6 +3313,7 @@ async function submitCreateEmployee(){
       isHrAdmin:document.getElementById('ec-isHrAdmin').checked,
       initialAccountStatus,
     });
+    const eid=result.eid;
     // 員工帳號建立成功後，緊接著建立第一筆Employment Terms版本——這兩支是分開的API呼叫
     // （Apps Script/Sheets沒有跨呼叫的transaction），如果第二支失敗，員工其實已經建立成功了，
     // 不能讓訊息看起來像整個操作失敗。PART_TIME/STUDENT_WORKER這時候帳號是SUSPENDED
@@ -3331,8 +3343,9 @@ async function submitCreateEmployee(){
       return;
     }
     msg.textContent='✓ '+result.message+'，'+termsResult.message; msg.className='form-msg ok';
-    ['ec-eid','ec-name','ec-nick','ec-email','ec-dept','ec-title','ec-hire','ec-nid','ec-dob','ec-hourlyRate','ec-monthlyBaseSalary','ec-agreedMonthlyHoursCap','ec-effectiveFrom'].forEach(id=>document.getElementById(id).value='');
+    ['ec-name','ec-nick','ec-email','ec-dept','ec-title','ec-hire','ec-nid','ec-dob','ec-hourlyRate','ec-monthlyBaseSalary','ec-agreedMonthlyHoursCap','ec-effectiveFrom'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('ec-gender-preview').textContent='—';
+    document.getElementById('ec-eid-display').textContent='載入中…';
     document.getElementById('emp-create-form').style.display='none';
     document.getElementById('emp-query-eid').dataset.loaded='';
     populateEmpQuerySelect();
@@ -3589,7 +3602,13 @@ function renderEmpDirectoryDetail(e){
     </div>`;
   }
   const termsTrigger=`<button class="action-btn icon-btn" style="width:auto;padding:8px 12px;border-radius:var(--radius-sm);margin-bottom:12px" onclick="event.stopPropagation();openEmpTermsDrawer('${e.eid}','${e.name}')">${icon('wallet')} 任用條件與排班</button>`;
-  return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${termsTrigger}${body}</div>`;
+  // 更正員工編號是帳號接管等級的敏感操作（eid是整個系統的關聯鍵），只給真正的Highest Admin，
+  // 用真實session.role（不是preview-aware的effectiveNavCtx）——這條規則跟reset_password
+  // 一樣，preview身分不該讓人「假裝」看到這顆按鈕。
+  const correctEidTrigger=session&&session.role>=2
+    ?`<button class="action-btn icon-btn" style="width:auto;padding:8px 12px;border-radius:var(--radius-sm);margin-bottom:12px;margin-left:8px" onclick="event.stopPropagation();openEidCorrectionDrawer('${e.eid}','${e.name}')">更正員編</button>`
+    :'';
+  return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${termsTrigger}${correctEidTrigger}${body}</div>`;
 }
 async function submitStartLoa(eid){
   const msg=document.getElementById('loa-msg-'+eid);
@@ -3687,6 +3706,7 @@ function renderPreviewBar(){
   }
 }
 function openPreviewPicker(autoExpandInspector){
+  termsDrawer=null; eidCorrectionDrawer=null;
   previewPickerOpen=true; previewInspectorExpanded=!!autoExpandInspector; previewDebugExpanded=false;
   renderPreviewPickerDrawer();
 }
@@ -3792,11 +3812,103 @@ function mondayOf(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate
 function fmtYmd(d){ return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
 function addDaysYmd(dateStr,n){ const [y,m,d]=dateStr.split('/').map(Number); const dt=new Date(y,m-1,d+n); return fmtYmd(dt); }
 function openEmpTermsDrawer(eid,name){
+  eidCorrectionDrawer=null; previewPickerOpen=false;
   termsDrawer={eid,name,tab:'terms',termsOverview:null,schedules:null,weekStart:fmtYmd(mondayOf(new Date())),monthSummary:null,month:todayKey().slice(0,7),showNewTerms:false,showNewSchedule:false};
   renderTermsDrawer();
   loadTermsDrawerTab('terms');
 }
 function closeTermsDrawer(){ termsDrawer=null; document.getElementById('terms-drawer-root').innerHTML=''; }
+
+// ── 更正員工編號：eid是整個系統的關聯鍵，不能當一般欄位直接改，一定要先看過影響範圍
+// 才能確認——這個drawer重用跟任用條件/排班同一個container（#terms-drawer-root），開啟時
+// 順手把另外兩種drawer的狀態關掉，避免同一個container被搞混。 ─────────────────────
+let eidCorrectionDrawer=null;
+function openEidCorrectionDrawer(eid,name){
+  termsDrawer=null; previewPickerOpen=false;
+  eidCorrectionDrawer={currentEid:eid,currentName:name,newEid:'',reason:'',preview:null,previewLoading:false,submitting:false,msg:'',msgClass:''};
+  renderEidCorrectionDrawer();
+}
+function closeEidCorrectionDrawer(){ eidCorrectionDrawer=null; document.getElementById('terms-drawer-root').innerHTML=''; }
+async function previewEidCorrection(){
+  const d=eidCorrectionDrawer;
+  d.newEid=document.getElementById('eid-correction-new').value.trim();
+  d.msg='';
+  if(!d.newEid){ d.msg='請輸入新的員工編號'; d.msgClass='err'; renderEidCorrectionDrawer(); return; }
+  d.previewLoading=true; d.preview=null;
+  renderEidCorrectionDrawer();
+  try{
+    const result=await api('preview_eid_correction',{currentEid:d.currentEid,newEid:d.newEid});
+    d.preview=result;
+  }catch(e){ d.msg='⚠ '+e.message; d.msgClass='err'; }
+  d.previewLoading=false;
+  renderEidCorrectionDrawer();
+}
+async function submitEidCorrection(){
+  const d=eidCorrectionDrawer;
+  d.reason=document.getElementById('eid-correction-reason').value.trim();
+  if(!d.reason){ d.msg='請填寫更正原因'; d.msgClass='err'; renderEidCorrectionDrawer(); return; }
+  if(!confirm(`確定要把 ${d.currentEid}（${d.currentName}）更正為 ${d.newEid}？這會一次改寫 ${d.preview?d.preview.totalCells:'?'} 處關聯資料，無法復原，請確認影響摘要已經看過。`)) return;
+  d.submitting=true; d.msg=''; renderEidCorrectionDrawer();
+  try{
+    // 這個Drawer目前只服務「新增員工時打錯字」這種情境（DATA_ENTRY_CORRECTION）。
+    // FORMAL_EID_CHANGE（員工曾經正式以舊eid工作過）後端還沒實作，UI也還沒有對應入口。
+    const result=await api('correct_employee_eid',{currentEid:d.currentEid,newEid:d.newEid,correctionReason:d.reason,correctionType:'DATA_ENTRY_CORRECTION'});
+    if(result.status==='CORRECTION_APPLIED_AUDIT_PENDING'){
+      // 資料本體已經更正成功，只有稽核紀錄寫入失敗——用alert()強制看到、且不能被誤認成
+      // 一般成功提示，避免HR以為只是小狀況就忽略，或誤以為更正沒成功而想再按一次
+      // （這時currentEid已經不存在，重按只會卡在「找不到員工」，不是需要重跑的情境）。
+      alert('⚠ '+result.message);
+    }else{
+      showToast('✓ '+result.message);
+    }
+    closeEidCorrectionDrawer();
+    document.getElementById('emp-directory-list') && loadEmployeeDirectory();
+    document.getElementById('emp-manage-list') && loadEmpManageList();
+  }catch(e){ d.msg='⚠ '+e.message; d.msgClass='err'; d.submitting=false; renderEidCorrectionDrawer(); }
+}
+function renderEidCorrectionDrawer(){
+  const root=document.getElementById('terms-drawer-root');
+  if(!eidCorrectionDrawer){ root.innerHTML=''; return; }
+  const d=eidCorrectionDrawer;
+  const elig=d.preview&&d.preview.eligibility;
+  const eligHtml=elig?(elig.eligible?
+    `<div class="form-msg" style="margin-top:8px;color:var(--text-soft)">✓ 目前只查到onboarding設定資料，符合「輸入誤植」更正資格，更正後 ${d.currentEid} 可被系統重新分配。</div>`:
+    `<div class="form-msg err" style="margin-top:8px">✗ 已查到正式營運資料（${elig.formalUseFindings.map(f=>f.sheet+'×'+f.matchedCells).join('、')}），不符合「輸入誤植」資格，無法透過這個流程更正。</div>`
+  ):'';
+  const impactHtml=d.preview?`
+    <div class="meta-text" style="margin-top:12px;margin-bottom:6px">影響範圍摘要（共 ${d.preview.totalCells} 處）</div>
+    ${d.preview.impact.length?`<table class="data-table"><thead><tr><th>工作表</th><th>筆數</th></tr></thead><tbody>
+      ${d.preview.impact.map(i=>`<tr><td>${i.sheet}</td><td>${i.matchedCells}</td></tr>`).join('')}
+    </tbody></table>`:'<div class="empty-state">目前沒有任何資料引用這個員工編號，可以安全更正。</div>'}
+    ${eligHtml}
+    ${d.preview.newEidValid===false?'<div class="form-msg err" style="margin-top:8px">新員工編號格式不正確，必須是H開頭加數字</div>':''}
+    ${d.preview.newEidValid&&d.preview.newEidAvailable===false?'<div class="form-msg err" style="margin-top:8px">這個員工編號已經被使用</div>':''}
+  `:'';
+  const canSubmit=d.preview&&d.preview.newEidValid&&d.preview.newEidAvailable&&elig&&elig.eligible;
+  root.innerHTML=`<div class="drawer-overlay" onclick="if(event.target===this)closeEidCorrectionDrawer()">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <div class="section-title">更正員工編號</div>
+        <button class="icon-btn" aria-label="關閉" onclick="closeEidCorrectionDrawer()">${icon('x')}</button>
+      </div>
+      <div class="body-text" style="font-weight:600;margin-bottom:4px">${d.currentName}（${d.currentEid}）</div>
+      <div class="meta-text" style="margin-bottom:12px">員工編號是整個系統的關聯鍵，更正前一定要先看過影響範圍——這個操作沒有復原功能。</div>
+      <div class="form-label-sm">新員工編號</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" class="form-input" id="eid-correction-new" placeholder="例如 H018" value="${d.newEid}" style="flex:1">
+        <button class="btn-secondary" style="width:auto;padding:0 16px" onclick="previewEidCorrection()" ${d.previewLoading?'disabled':''}>${d.previewLoading?'查詢中…':'預覽影響範圍'}</button>
+      </div>
+      ${impactHtml}
+      ${d.preview?`
+        <div class="form-label-sm" style="margin-top:12px">更正原因（必填，會存入異動紀錄）</div>
+        <textarea class="form-input" id="eid-correction-reason" rows="2">${d.reason}</textarea>
+        <button class="btn-primary" style="margin-top:10px" onclick="submitEidCorrection()" ${(!canSubmit||d.submitting)?'disabled':''}>${d.submitting?'處理中…':'確認更正'}</button>
+      `:''}
+      ${d.msg?`<div class="form-msg ${d.msgClass}" style="margin-top:8px">${d.msg}</div>`:''}
+    </div>
+  </div>`;
+}
+
 function switchTermsDrawerTab(tab){
   termsDrawer.tab=tab; termsDrawer.showNewTerms=false; termsDrawer.showNewSchedule=false;
   renderTermsDrawer();
