@@ -1404,15 +1404,64 @@ renderStaticIcons();
 // ── GPS ────────────────────────────────────────────────────────
 let currentGPS=null, gpsWatcher=null, currentMode='辦公室';
 let gpsConfig={ lat:25.0588, lng:121.5395, radius:100, officeIp:'' };
-let detectedPublicIp=null;
 // 瀏覽器沒有辦法讀取「連上哪個WiFi」，只能退而求其次用公網IP比對（同一個辦公室網路對外通常是同一個IP）
-// 這裡呼叫一個公開、免費、不需要金鑰的IP查詢服務；查詢失敗（離線、被瀏覽器封鎖等）就當作沒有這個備援，不影響原本GPS判斷
-async function detectPublicIp(){
-  try{
-    const res=await fetch('https://api.ipify.org?format=json');
-    const data=await res.json();
-    detectedPublicIp=data.ip||null;
-  }catch(e){ detectedPublicIp=null; }
+// 這裡呼叫一個公開、免費、不需要金鑰的IP查詢服務。
+//
+// IP狀態不能只用「detectedPublicIp是不是null」代表——這樣完全分不出「還沒查」「查過但失敗」
+// 「查過而且不match」三種情況，也沒辦法做「打卡當下重新確認新鮮度」這件事：如果員工在家先
+// 開過這個頁面、到公司後SPA沒有重新整理，detectedPublicIp可能還是家裡網路的舊值，即使公司
+// 網路本身完全沒問題也會被誤判。改成明確的state：
+let ipLookupStatus='idle'; // idle | pending | success | failed
+let detectedPublicIp=null;
+let ipCheckedAt=null;      // 最後一次成功查到值的時間戳（Date.now()），用來判斷「夠不夠新鮮」
+let ipLookupPromise=null;  // 目前正在飛的查詢——避免同時重複發出第二個request
+const IP_FRESHNESS_MS=60000;    // 60秒內查到的結果視為足夠新，可以直接沿用，不必每次打卡都重查
+const IP_LOOKUP_TIMEOUT_MS=2500; // 打卡當下最多願意等這麼久，逾時就當作failed，一律fallback GPS，不能無限卡住
+
+function fetchPublicIpOnce(){
+  ipLookupStatus='pending';
+  const timeoutPromise=new Promise(resolve=>setTimeout(()=>resolve(null), IP_LOOKUP_TIMEOUT_MS));
+  const fetchPromise=fetch('https://api.ipify.org?format=json')
+    .then(res=>res.json()).then(data=>data.ip||null).catch(()=>null);
+  ipLookupPromise=Promise.race([fetchPromise,timeoutPromise]).then(ip=>{
+    detectedPublicIp=ip;
+    ipCheckedAt=Date.now();
+    ipLookupStatus=ip?'success':'failed';
+    ipLookupPromise=null;
+    updateGpsBar();
+    return ip;
+  });
+  return ipLookupPromise;
+}
+// 打卡當下（或狀態列需要更新時）呼叫這支，而不是直接用舊的detectedPublicIp：已經有一個查詢
+// 在飛的話直接await同一個promise、不重複發request；60秒內的成功結果直接沿用；否則才真的重查。
+function ensureFreshPublicIp(){
+  if(ipLookupPromise) return ipLookupPromise;
+  if(ipLookupStatus==='success' && ipCheckedAt && (Date.now()-ipCheckedAt)<IP_FRESHNESS_MS){
+    return Promise.resolve(detectedPublicIp);
+  }
+  return fetchPublicIpOnce();
+}
+// 回傳目前辦公室網路比對的明確狀態，不是單純boolean——PENDING（查詢中，還不能下結論）、
+// FAILED（查詢失敗/逾時）、MISMATCH（查到了但不是設定的office IP）都要能分開判斷，
+// 才不會被下游的GPS判斷吃掉真正原因。NOT_CONFIGURED＝這個公司根本沒設定office IP，維持
+// 原本純GPS流程，不做任何IP檢查。
+function officeIpMatchStatus(){
+  if(!gpsConfig.officeIp) return 'NOT_CONFIGURED';
+  if(ipLookupStatus==='pending') return 'PENDING';
+  if(ipLookupStatus==='failed' || !detectedPublicIp) return 'FAILED';
+  return detectedPublicIp===gpsConfig.officeIp ? 'MATCH' : 'MISMATCH';
+}
+// 只給Highest Admin看的最小診斷輸出（console，不做UI面板）——下次有人反映打不了卡，
+// 直接請她開devtools console貼這行結果，不用再靠猜的。
+function logPunchLocationDecision(finalDecision){
+  if(!(session && session.role>=2)) return;
+  console.log('[打卡定位診斷]', {
+    detectedPublicIp, officeIp: gpsConfig.officeIp, ipLookupStatus, ipCheckedAt,
+    ipMatchStatus: officeIpMatchStatus(),
+    gps: currentGPS, gpsAllowedRadius: currentGPS?gpsAllowedRadius():null,
+    finalDecision,
+  });
 }
 
 // ── 工具 ───────────────────────────────────────────────────────
@@ -1488,8 +1537,11 @@ function gpsAllowedRadius(){
 }
 function updateGpsBar(){
   if(currentMode==='辦公室'){
-    // 連上公司網路的話，不用等GPS定位完成就能直接放行（GPS室內訊號不穩時的備援）
-    if(isOnOfficeNetwork()){ setGpsBar('ok','已連上公司網路，可以打卡'); return; }
+    // 這裡只是「即時狀態列」顯示用，不是打卡當下的最終判斷（打卡當下doPunch()會自己再做一次
+    // punch-time freshness check，不會只信任這裡顯示的狀態）。
+    const ipStatus=officeIpMatchStatus();
+    if(ipStatus==='MATCH'){ setGpsBar('ok','已連上公司網路，可以打卡'); return; }
+    if(ipStatus==='PENDING'){ setGpsBar('loading','正在確認辦公室網路…'); return; }
     if(!currentGPS){ setGpsBar('loading','定位中…'); return; }
     // 刻意不顯示實際距離／容許範圍公尺數，避免員工摸索打卡邊界
     const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
@@ -1501,7 +1553,7 @@ function updateGpsBar(){
   }
 }
 function startGPS(){
-  detectPublicIp().then(updateGpsBar);
+  if(gpsConfig.officeIp) ensureFreshPublicIp().then(updateGpsBar);
   if(!navigator.geolocation){setGpsBar('warn','此裝置不支援定位，仍可打卡');return;}
   setGpsBar('loading','定位中…');
   gpsWatcher=navigator.geolocation.watchPosition(
@@ -1509,9 +1561,6 @@ function startGPS(){
     err=>{currentGPS=null;if(err.code===1)setGpsBar('warn','請允許定位權限');else setGpsBar('warn','無法取得位置，仍可打卡');},
     {enableHighAccuracy:true,maximumAge:10000,timeout:15000}
   );
-}
-function isOnOfficeNetwork(){
-  return !!(gpsConfig.officeIp && detectedPublicIp && gpsConfig.officeIp===detectedPublicIp);
 }
 function stopGPS(){if(gpsWatcher!=null){navigator.geolocation.clearWatch(gpsWatcher);gpsWatcher=null;}}
 function selectMode(mode,btn){
@@ -1869,11 +1918,25 @@ async function doPunch(type){
       showToast(`⚠ 超過打卡時間，如需加班請先申請`);return;
     }
   }
-  if(currentMode==='辦公室'&&!isOnOfficeNetwork()){
-    if(currentGPS){
+  if(currentMode==='辦公室'){
+    // Punch-time freshness check：不能只信任頁面剛開啟時查到的IP——員工可能在家先開過這個
+    // 頁面、到公司後SPA沒有重新整理，記憶體裡的detectedPublicIp可能還是舊網路的值。這裡每次
+    // 打卡都重新確認一次（60秒內的結果會直接沿用，不必每次都真的呼叫ipify），最多等
+    // IP_LOOKUP_TIMEOUT_MS，逾時或失敗一律fallback GPS，不會卡住、也不會直接拒絕打卡。
+    if(gpsConfig.officeIp){
+      const willActuallyLookup=!(ipLookupStatus==='success' && ipCheckedAt && (Date.now()-ipCheckedAt)<IP_FRESHNESS_MS);
+      if(willActuallyLookup) showToast('📡 正在確認辦公室網路…', 3000);
+      await ensureFreshPublicIp();
+    }
+    const ipStatus=officeIpMatchStatus();
+    if(ipStatus==='MATCH'){
+      logPunchLocationDecision('PASS_IP_MATCH');
+    } else if(currentGPS){
       const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
-      if(dist>gpsAllowedRadius()){showToast('⚠ 不在辦公室範圍內，無法打卡');return;}
+      if(dist>gpsAllowedRadius()){ logPunchLocationDecision('REJECT_GPS_OUT_OF_RANGE'); showToast('⚠ 不在辦公室範圍內，無法打卡'); return; }
+      logPunchLocationDecision('PASS_GPS_IN_RANGE');
     } else {
+      logPunchLocationDecision('REJECT_GPS_NOT_READY');
       showToast('⚠ 定位尚未完成，請稍後再試');return;
     }
   }
