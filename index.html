@@ -335,6 +335,9 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 
 <!-- ══ 打卡 ══ -->
 <div class="screen" id="screen-punch">
+  <div class="first-login-banner" id="today-holiday-banner" style="display:none;background:var(--blue-lo);color:var(--deep-blue)">
+    <span id="today-holiday-text"></span>
+  </div>
   <div class="first-login-banner" id="first-login-banner">
     <span id="icon-banner-firstlogin"></span> 您使用的是預設密碼，請前往「個人」頁籤立即修改密碼，避免他人代打卡。
   </div>
@@ -428,6 +431,10 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
     <div class="mini-av" id="mini-av-screen-records"></div>
     <div><div class="mini-name" id="mini-name-screen-records"></div><div class="mini-meta" id="mini-meta-screen-records"></div></div>
     <div class="mini-badge" id="mini-badge-screen-records"></div>
+  </div>
+  <div id="my-roster-section" style="display:none">
+    <div class="section-label">本週排班</div>
+    <div class="card"><div id="my-roster-card"><div class="empty-state">載入中…</div></div></div>
   </div>
   <div class="section-label">本月出勤總覽</div>
   <div class="card" id="monthly-summary">
@@ -941,7 +948,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
       <div style="font-size:11px;color:var(--text-soft)">「說明／覆核期限」的工作天計算會排除這裡登記的日期。預設週六週日不算工作日、其餘算工作日；這裡可以額外登記「休息」（原本是工作日但這天不算，例如國定假日）或「補班」（原本是週六週日但這天要算工作日）。</div>
       <div class="form-row-2">
         <div><div class="form-label-sm">日期</div><input type="date" id="hol-date" class="form-input"></div>
-        <div><div class="form-label-sm">類型</div><select id="hol-type" class="form-select"><option value="休息">休息（這天不算工作日）</option><option value="補班">補班（這天要算工作日）</option></select></div>
+        <div><div class="form-label-sm">類型</div><select id="hol-type" class="form-select"><option value="休息">休息（這天不算工作日）</option><option value="補班">補班（這天要算工作日）</option><option value="遠端日">遠端日（正常工作日，可在家上班）</option></select></div>
       </div>
       <div><div class="form-label-sm">名稱</div><input type="text" id="hol-name" class="form-input" placeholder="例如：中秋節"></div>
       <button class="btn-secondary" onclick="addHoliday()">新增登記</button>
@@ -1691,7 +1698,7 @@ function switchTab(n,btn){
   renderMiniProfile('screen-'+n);
   refreshShiftDefs(); // 背景刷新班別時間，確保切頁後用到的都是最新設定
   if(n==='punch')   renderPunch();
-  if(n==='records') loadRecords();
+  if(n==='records'){ loadRecords(); loadMyRosterCard(); }
   if(n==='leave')   loadLeave();
   if(n==='overtime') loadOvertime();
   if(n==='profile') renderProfile();
@@ -1719,6 +1726,7 @@ function renderPunch(){
   checkPayrollReminder();
   checkSickProofReminder();
   checkLateNoticeReminder();
+  checkTodayHolidayBanner();
   document.getElementById('hr-bootstrap-banner').style.display=session.hrAdminBootstrapAvailable?'block':'none';
 }
 
@@ -1820,6 +1828,24 @@ function goToMyLateRecords(){
   document.getElementById('my-late-list')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+// 今天如果是公司工作日曆登記的特殊日子（國定假日/特殊休假用'休息'、遠端日用'遠端日'），
+// 在打卡首頁給所有人看到——跟後端isTaipeiWorkingDay()讀同一張表，不會顯示跟實際打卡限制
+// 不一致的訊息。純顯示，不可點擊，跟遠端日本身「正常上班，只是不用進辦公室」的定位一致。
+async function checkTodayHolidayBanner(){
+  try{
+    const result=await api('get_holidays');
+    const today=todayKey();
+    const todayEntry=(result.holidays||[]).find(h=>h.date===today);
+    const banner=document.getElementById('today-holiday-banner');
+    if(todayEntry){
+      const labelMap={'休息':'🏮 今天是假日，不用出勤','補班':'📅 今天是補班日，請正常出勤','遠端日':'🏠 今天是遠端日，可在家上班'};
+      document.getElementById('today-holiday-text').textContent=(labelMap[todayEntry.type]||'📌 今天有特殊安排')+(todayEntry.name?'：'+todayEntry.name:'');
+      banner.style.display='block';
+    } else {
+      banner.style.display='none';
+    }
+  }catch(e){}
+}
 async function checkPayrollReminder(){
   try{
     const result=await api('get_my_payroll');
@@ -2146,6 +2172,39 @@ async function submitPatch(){
     loadMyPatchList();
     loadAdminBadge();
   } catch(e){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; }
+}
+
+// ── 我的排班（唯讀，排班制ROSTER員工才會顯示，看自己的不用額外權限）──────
+let myRosterWeekStart=null;
+async function loadMyRosterCard(){
+  const section=document.getElementById('my-roster-section');
+  if(!section) return;
+  if(!(session && session.scheduleModel==='ROSTER')){ section.style.display='none'; return; }
+  section.style.display='block';
+  if(!myRosterWeekStart) myRosterWeekStart=fmtYmd(mondayOf(new Date()));
+  await renderMyRosterCard();
+}
+async function renderMyRosterCard(){
+  const el=document.getElementById('my-roster-card');
+  if(!el) return;
+  el.innerHTML='<div class="empty-state">載入中…</div>';
+  try{
+    const weekEndExclusive=addDaysYmd(myRosterWeekStart,7);
+    const result=await api('get_work_schedules',{targetEid:session.eid,startDate:myRosterWeekStart,endDate:weekEndExclusive});
+    const weekEndIncl=addDaysYmd(myRosterWeekStart,6);
+    const rows=(result.schedules||[]).map(s=>`<tr>
+      <td>${s.workDate}</td><td>${s.scheduledStartAt}–${s.scheduledEndAt}</td><td>${s.scheduledBreakMinutes}分</td><td>${s.note||'—'}</td>
+    </tr>`).join('');
+    el.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <button class="icon-btn" aria-label="上一週" style="width:auto;padding:6px 12px" onclick="myRosterWeekStart=addDaysYmd(myRosterWeekStart,-7);renderMyRosterCard()">‹ 上一週</button>
+        <div class="meta-text">${myRosterWeekStart} – ${weekEndIncl}</div>
+        <button class="icon-btn" aria-label="下一週" style="width:auto;padding:6px 12px" onclick="myRosterWeekStart=addDaysYmd(myRosterWeekStart,7);renderMyRosterCard()">下一週 ›</button>
+      </div>
+      <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>日期</th><th>排班</th><th>休息</th><th>備註</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:var(--text-soft)">本週尚未排班</td></tr>'}</tbody>
+      </table></div>`;
+  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
 }
 
 // ── 打卡紀錄 ─────────────────────────────────────────────────
