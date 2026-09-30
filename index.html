@@ -1452,16 +1452,29 @@ function officeIpMatchStatus(){
   if(ipLookupStatus==='failed' || !detectedPublicIp) return 'FAILED';
   return detectedPublicIp===gpsConfig.officeIp ? 'MATCH' : 'MISMATCH';
 }
-// 只給Highest Admin看的最小診斷輸出（console，不做UI面板）——下次有人反映打不了卡，
-// 直接請她開devtools console貼這行結果，不用再靠猜的。
+// console輸出留給真的會開DevTools的人；但Highest Admin實測下來DevTools是溝通瓶頸（非技術
+// 背景，光是找到console就卡了好幾輪），只留console不夠用，一律都印，不再限定role。
 function logPunchLocationDecision(finalDecision){
-  if(!(session && session.role>=2)) return;
   console.log('[打卡定位診斷]', {
     detectedPublicIp, officeIp: gpsConfig.officeIp, ipLookupStatus, ipCheckedAt,
     ipMatchStatus: officeIpMatchStatus(),
     gps: currentGPS, gpsAllowedRadius: currentGPS?gpsAllowedRadius():null,
     finalDecision,
   });
+}
+// 打卡被地點驗證擋下時才呼叫（PASS不會呼叫，避免每次成功打卡都跳alert）。一般員工只會在
+// showToast裡看到一個不透露實際IP/辦公室IP的簡短代碼（例如FAILED_GPS_NOT_READY），只要
+// 把這串代碼回報回來就能定位是哪一層出問題，不用每個人都開DevTools；Highest Admin額外用
+// alert()直接看到完整明細——不用DevTools就能截圖回報，因為DevTools這條路已經證實對她行不通。
+function showLocationDiagAlert(code){
+  if(!(session && session.role>=2)) return;
+  alert('[打卡定位診斷]\n'+
+    '診斷代碼：'+code+'\n'+
+    '偵測到的公網IP：'+(detectedPublicIp||'(尚未取得)')+'\n'+
+    '設定的辦公室IP：'+(gpsConfig.officeIp||'(未設定)')+'\n'+
+    'IP比對狀態：'+officeIpMatchStatus()+'\n'+
+    'GPS座標：'+(currentGPS?(currentGPS.lat.toFixed(5)+', '+currentGPS.lng.toFixed(5)+'（精確度±'+currentGPS.acc+'公尺）'):'(尚未取得)')+'\n'+
+    '時間：'+new Date().toLocaleTimeString('zh-TW'));
 }
 
 // ── 工具 ───────────────────────────────────────────────────────
@@ -1933,11 +1946,20 @@ async function doPunch(type){
       logPunchLocationDecision('PASS_IP_MATCH');
     } else if(currentGPS){
       const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
-      if(dist>gpsAllowedRadius()){ logPunchLocationDecision('REJECT_GPS_OUT_OF_RANGE'); showToast('⚠ 不在辦公室範圍內，無法打卡'); return; }
-      logPunchLocationDecision('PASS_GPS_IN_RANGE');
+      if(dist>gpsAllowedRadius()){
+        const code=ipStatus+'_GPS_OUT_OF_RANGE';
+        logPunchLocationDecision(code);
+        showToast('⚠ 不在辦公室範圍內，無法打卡（代碼:'+code+'）', 4000);
+        showLocationDiagAlert(code);
+        return;
+      }
+      logPunchLocationDecision(ipStatus+'_GPS_PASS');
     } else {
-      logPunchLocationDecision('REJECT_GPS_NOT_READY');
-      showToast('⚠ 定位尚未完成，請稍後再試');return;
+      const code=ipStatus+'_GPS_NOT_READY';
+      logPunchLocationDecision(code);
+      showToast('⚠ 定位尚未完成，請稍後再試（代碼:'+code+'）', 4000);
+      showLocationDiagAlert(code);
+      return;
     }
   }
   const now=new Date();
