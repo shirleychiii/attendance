@@ -1460,13 +1460,68 @@ function officeIpMatchStatus(){
   if(ipLookupStatus==='failed' || !detectedPublicIp) return 'FAILED';
   return detectedPublicIp===gpsConfig.officeIp ? 'MATCH' : 'MISMATCH';
 }
+// GPS_ACCURACY_THRESHOLD：這是「這筆GPS定位夠不夠可信」的獨立門檻，跟辦公室圍欄半徑
+// （gpsConfig.radius，管理員可設定，production目前100m）是兩件不同的事，不能混在一起算
+// （不可以再用radius+accuracy放寬圍欄）。50公尺是這輪暫定值，還沒經過Shirley確認：
+// 選50的理由——手機在室內／WiFi輔助定位（辦公室打卡的典型情境）常見精確度落在20~100公尺，
+// 50大約是「有點餘裕但仍能過濾掉純基地台定位（精確度常常200公尺以上）」的中間值，同時明顯
+// 小於100公尺的圍欄半徑，讓「精確度可信」跟「距離在圍欄內」是兩個獨立、有意義的判斷，不會
+// 因為精確度剛好卡在圍欄邊界附近而失去意義。這個數字只是frontend常數，不影響Sheet schema，
+// 之後Shirley確認要調整的話直接改這裡即可。
+const GPS_ACCURACY_THRESHOLD_M=50;
+// 回傳這筆GPS定位相對於辦公室圍欄的狀態，四選一，不是boolean：
+// NOT_READY（還沒有座標，可能是還在定位中，也可能是denied/unavailable/不支援定位——三者對
+// 「能不能打卡」這個判斷來說效果相同，都是"目前沒有可用GPS"）／LOW_ACCURACY（有座標，但精確度
+// 數字比GPS_ACCURACY_THRESHOLD_M還差，不足以信任這筆定位，不管距離算出來多少都不算數）／
+// IN_RANGE／OUT_OF_RANGE（精確度可信、且真的算出距離跟圍欄半徑比較的結果）。精確度檢查一定要
+// 排在距離計算「之前」——精確度不夠時，即使算出來的距離很小，也不能當作真的在圍欄內。
+function getGpsLocationState(){
+  if(!currentGPS) return 'NOT_READY';
+  if(currentGPS.acc>GPS_ACCURACY_THRESHOLD_M) return 'LOW_ACCURACY';
+  const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
+  return dist<=gpsConfig.radius ? 'IN_RANGE' : 'OUT_OF_RANGE';
+}
+// 辦公室模式唯一的location gate決策入口，doPunch()的實際擋卡判斷、跟updateGpsBar()的即時
+// 狀態列顯示都呼叫這一支，保證「畫面上顯示的文字」跟「真的會不會被擋下」永遠是同一套邏輯算出來
+// 的，不會出現兩條邏輯各自維護、講的話跟做的事不一致的情況。正式規則（PASS的唯二情況）：
+// OFFICE_NETWORK_MATCH（IP比對成功，GPS不論denied/failed/low accuracy/out of range都直接
+// 放行，不需要GPS）；或VALID_GPS_WITHIN_CONFIGURED_RADIUS（IP沒過，但GPS精確度可信且距離
+// <=管理員設定的圍欄半徑）。除此之外一律BLOCK，包含office設定本身載入失敗（fail closed，
+// 不能用寫死的預設座標/半徑偷偷放行）。
+function getOfficeLocationDecision(){
+  if(gpsConfigStatus==='failed'){
+    return {pass:false, code:'CONFIG_FAILED', message:'無法載入辦公室打卡設定，請稍後再試'};
+  }
+  if(gpsConfigStatus!=='ready'){
+    return {pass:false, code:'CONFIG_LOADING', message:'正在確認辦公室位置…'};
+  }
+  const ipStatus=officeIpMatchStatus();
+  if(ipStatus==='MATCH'){
+    return {pass:true, code:'IP_MATCH', message:'已連接辦公室網路，可以打卡'};
+  }
+  const gpsState=getGpsLocationState();
+  if(gpsState==='IN_RANGE'){
+    return {pass:true, code:ipStatus+'_GPS_IN_RANGE', message:'已確認位於辦公室範圍，可以打卡'};
+  }
+  if(gpsState==='OUT_OF_RANGE'){
+    return {pass:false, code:ipStatus+'_GPS_OUT_OF_RANGE', message:'不在辦公室範圍內，無法打卡'};
+  }
+  if(ipStatus==='PENDING' && gpsState==='NOT_READY'){
+    return {pass:false, code:'IP_PENDING_GPS_NOT_READY', message:'正在確認辦公室位置…'};
+  }
+  // 剩下的情況是gpsState為NOT_READY(denied/failed/不支援/還沒等到第一次定位)或LOW_ACCURACY，
+  // 且IP已經有明確結果（MISMATCH/FAILED/NOT_CONFIGURED，不是PENDING）——這些統一算「目前
+  // 拿不到足夠可信的定位」，用同一句話，不細分原因給員工看（診斷代碼裡還是有留原因）。
+  return {pass:false, code:ipStatus+'_GPS_'+gpsState, message:'無法確認辦公室位置，暫時無法打卡'};
+}
 // console輸出留給真的會開DevTools的人；但Highest Admin實測下來DevTools是溝通瓶頸（非技術
 // 背景，光是找到console就卡了好幾輪），只留console不夠用，一律都印，不再限定role。
 function logPunchLocationDecision(finalDecision){
   console.log('[打卡定位診斷]', {
     detectedPublicIp, officeIp: gpsConfig.officeIp, ipLookupStatus, ipCheckedAt,
     ipMatchStatus: officeIpMatchStatus(),
-    gps: currentGPS, gpsAllowedRadius: currentGPS?gpsAllowedRadius():null,
+    gps: currentGPS, gpsAccuracyThreshold: GPS_ACCURACY_THRESHOLD_M, officeRadius: gpsConfig.radius,
+    gpsConfigStatus,
     finalDecision,
   });
 }
@@ -1478,10 +1533,12 @@ function showLocationDiagAlert(code){
   if(!(session && session.role>=2)) return;
   alert('[打卡定位診斷]\n'+
     '診斷代碼：'+code+'\n'+
+    'Office設定載入狀態：'+gpsConfigStatus+'\n'+
     '偵測到的公網IP：'+(detectedPublicIp||'(尚未取得)')+'\n'+
     '設定的辦公室IP：'+(gpsConfig.officeIp||'(未設定)')+'\n'+
     'IP比對狀態：'+officeIpMatchStatus()+'\n'+
-    'GPS座標：'+(currentGPS?(currentGPS.lat.toFixed(5)+', '+currentGPS.lng.toFixed(5)+'（精確度±'+currentGPS.acc+'公尺）'):'(尚未取得)')+'\n'+
+    'GPS座標：'+(currentGPS?(currentGPS.lat.toFixed(5)+', '+currentGPS.lng.toFixed(5)+'（精確度±'+currentGPS.acc+'公尺，門檻'+GPS_ACCURACY_THRESHOLD_M+'公尺）'):'(尚未取得)')+'\n'+
+    '辦公室圍欄半徑：'+gpsConfig.radius+'公尺\n'+
     '時間：'+new Date().toLocaleTimeString('zh-TW'));
 }
 
@@ -1551,57 +1608,84 @@ function setGpsBar(type,msg){
   document.getElementById('gps-icon').textContent=icons[type]||'📡';
   document.getElementById('gps-text').textContent=msg;
 }
-// 容許範圍＝圍欄半徑＋手機回報的定位精確度：室內訊號差、手機自己都不確定準不準時自動放寬，
-// 訊號好（精確度數字小）的時候容許範圍就跟圍欄半徑差不多，不會整體變寬鬆
-function gpsAllowedRadius(){
-  return gpsConfig.radius + (currentGPS?.acc || 0);
-}
+// gpsWatchState：追蹤navigator.geolocation自己回報的狀態，只給「居家辦公／公出」這兩個
+// 不會被gate、GPS純參考用的模式顯示文字用（辦公室模式的判斷完全走getOfficeLocationDecision()，
+// 不看這個變數）。gpsUnsupported＝這台裝置/瀏覽器根本沒有geolocation API。
+let gpsUnsupported=false, gpsError=null;
 function updateGpsBar(){
   if(currentMode==='辦公室'){
-    // 這裡只是「即時狀態列」顯示用，不是打卡當下的最終判斷（打卡當下doPunch()會自己再做一次
-    // punch-time freshness check，不會只信任這裡顯示的狀態）。
-    const ipStatus=officeIpMatchStatus();
-    if(ipStatus==='MATCH'){ setGpsBar('ok','已連上公司網路，可以打卡'); return; }
-    if(ipStatus==='PENDING'){ setGpsBar('loading','正在確認辦公室網路…'); return; }
-    if(!currentGPS){ setGpsBar('loading','定位中…'); return; }
-    // 刻意不顯示實際距離／容許範圍公尺數，避免員工摸索打卡邊界
-    const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
-    if(dist<=gpsAllowedRadius()) setGpsBar('ok','已在辦公室範圍內，可以打卡');
-    else setGpsBar('err','不在辦公室範圍內，無法打卡');
+    // 這裡只是「即時狀態列」顯示用，跟doPunch()實際擋卡判斷是同一套邏輯（都呼叫
+    // getOfficeLocationDecision()），保證畫面顯示的話一定跟真的會不會被擋一致，不會有
+    // 「顯示可以打卡，結果按下去被擋」或反過來的落差。
+    const decision=getOfficeLocationDecision();
+    const barType = decision.pass ? 'ok' : (decision.code==='CONFIG_FAILED' ? 'err' : (decision.code==='CONFIG_LOADING'||decision.code==='IP_PENDING_GPS_NOT_READY' ? 'loading' : 'err'));
+    setGpsBar(barType, decision.message);
   } else {
-    if(!currentGPS){ setGpsBar('loading','定位中…'); return; }
+    // 居家辦公／公出：GPS純參考用，這兩個模式的規則這輪完全不動，訊息維持原樣。
+    if(gpsUnsupported){ setGpsBar('warn','此裝置不支援定位，仍可打卡'); return; }
+    if(!currentGPS){
+      if(gpsError===1){ setGpsBar('warn','請允許定位權限'); return; }
+      if(gpsError){ setGpsBar('warn','無法取得位置，仍可打卡'); return; }
+      setGpsBar('loading','定位中…'); return;
+    }
     setGpsBar('ok',`已定位（精確度 ±${currentGPS.acc} 公尺）`);
   }
 }
-// gpsConfig(lat/lng/radius/officeIp)過去只有loadAdminGpsConfig()（設定頁專用，還會寫入一堆
-// 只有admin畫面才存在的DOM元素，一般員工的頁面沒有那些元素會直接TypeError中斷）會填真正的值——
-// 代表一般員工的gpsConfig從登入到打卡全程都停在寫死的預設值，officeIp永遠是空字串。這比
-// 這幾天修的IP查詢race condition更根本：不管IP查詢時機抓得多準，officeIp本身是空的，比對
-// 永遠是NOT_CONFIGURED，直接fallback GPS，而GPS用的也是預設座標不是真正登記的辦公室位置。
-// 這支只更新gpsConfig變數本身，不碰任何DOM，任何角色的session都能安全呼叫。
+// gpsConfigStatus：辦公室打卡設定（座標/圍欄半徑/office IP）的載入狀態，明確分idle/loading/
+// ready/failed四種，不是「catch吞掉錯誤、默默沿用寫死的預設值」——這點是這輪的P0修正：
+// 舊版loadGpsConfigForSelf()失敗時完全不處理，等於允許用寫死的25.0588/121.5395/100m座標
+// 通過office驗證，這不是安全的fail-closed邊界。現在fetch本身失敗(catch)才會設成'failed'，
+// getOfficeLocationDecision()看到'failed'會直接BLOCK，不管gpsConfig裡現在殘留什麼舊值或
+// 初始值。設定本身回應成功、但個別欄位缺值時的預設值(例如25.0588)只在「HR完全還沒填過
+// 辦公室設定」這種資料完整性問題下才會用到，跟fetch失敗是兩件事——這支只更新gpsConfig變數
+// 本身，不碰任何DOM，任何角色的session都能安全呼叫。
+let gpsConfigStatus='idle';
 async function loadGpsConfigForSelf(){
+  gpsConfigStatus='loading';
   try{
     const cfgResult=await api('get_settings');
     const cfg=cfgResult.settings||{};
-    gpsConfig.lat=parseFloat(cfg['辦公室緯度']||'25.0588');
-    gpsConfig.lng=parseFloat(cfg['辦公室經度']||'121.5395');
-    gpsConfig.radius=parseInt(cfg['圍欄半徑(m)']||'100');
-    gpsConfig.officeIp=cfg['辦公室網路公網IP']||'';
-  }catch(e){}
+    const lat=parseFloat(cfg['辦公室緯度']);
+    const lng=parseFloat(cfg['辦公室經度']);
+    const radius=parseFloat(cfg['圍欄半徑(m)']);
+    const officeIp=cfg['辦公室網路公網IP']||'';
+    // Office config fail-closed：get_settings這支API有沒有成功回應，不等於Office定位設定
+    // 本身是「合法、可以拿來驗證的值」——原本用`||'25.0588'`這種寫法，只要欄位是空字串／
+    // undefined才會退回預設值，但如果欄位裡是像"abc"這種非數字字串，`parseFloat`會變成NaN
+    // 直接往下用，state還是被設成'ready'。NaN/0/負數半徑都必須讓gpsConfigStatus變成
+    // 'failed'，不能讓這些非法值繼續拿去跟GPS距離做比較（NaN參與比較永遠是false，會讓
+    // 每一筆GPS距離判斷都變成「超出範圍」，員工看到的訊息會誤導成「你人不在公司」而不是
+    // 「設定本身有問題」，兩者需要的後續動作完全不同）。officeIp維持optional，本來就可以
+    // 留白，不列入這個合法性檢查，不會因為留白就讓config被判定failed。
+    const validLat = Number.isFinite(lat) && lat>=-90 && lat<=90;
+    const validLng = Number.isFinite(lng) && lng>=-180 && lng<=180;
+    const validRadius = Number.isFinite(radius) && radius>0;
+    if(validLat && validLng && validRadius){
+      gpsConfig.lat=lat; gpsConfig.lng=lng; gpsConfig.radius=radius; gpsConfig.officeIp=officeIp;
+      gpsConfigStatus='ready';
+    } else {
+      gpsConfigStatus='failed';
+    }
+  }catch(e){
+    gpsConfigStatus='failed';
+  }
 }
 // doPunch()的location gate會await這個promise，確保真正比對前一定等到gpsConfig載入完成
-// （或至少嘗試過），不會用還沒載入的空值誤判。
+// （或確定失敗），不會用還沒載入/失敗的狀態誤判成可以放行。
 let gpsConfigReadyPromise=null;
 function startGPS(){
   gpsConfigReadyPromise=loadGpsConfigForSelf().then(()=>{
     if(gpsConfig.officeIp) ensureFreshPublicIp().then(updateGpsBar);
     updateGpsBar();
   });
-  if(!navigator.geolocation){setGpsBar('warn','此裝置不支援定位，仍可打卡');return;}
-  setGpsBar('loading','定位中…');
+  updateGpsBar();
+  if(!navigator.geolocation){ gpsUnsupported=true; updateGpsBar(); return; }
   gpsWatcher=navigator.geolocation.watchPosition(
-    pos=>{currentGPS={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)};updateGpsBar();},
-    err=>{currentGPS=null;if(err.code===1)setGpsBar('warn','請允許定位權限');else setGpsBar('warn','無法取得位置，仍可打卡');},
+    // GPS callback只負責更新GPS狀態本身，不在這裡直接決定「辦公室模式能不能打卡」——那句話
+    // 一律交給getOfficeLocationDecision()透過updateGpsBar()統一決定，避免GPS失敗時錯誤覆蓋掉
+    // 「IP已經MATCH、其實可以打卡」這個PASS狀態（這是這輪修正前的實際bug）。
+    pos=>{ currentGPS={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)}; gpsError=null; updateGpsBar(); },
+    err=>{ currentGPS=null; gpsError=err.code; updateGpsBar(); },
     {enableHighAccuracy:true,maximumAge:10000,timeout:15000}
   );
 }
@@ -1982,36 +2066,25 @@ async function doPunch(type){
   }
   if(currentMode==='辦公室'){
     // gpsConfig(officeIp/lat/lng/radius)是從get_settings非同步載入的，員工登入後可能在
-    // loadGpsConfigForSelf()真正完成前就點了打卡——一定要先等這個promise，不然officeIp/
-    // lat/lng會是還沒載入的預設值，永遠判斷成NOT_CONFIGURED、GPS也拿錯座標比對。
+    // loadGpsConfigForSelf()真正完成前就點了打卡——一定要先等這個promise，確保gpsConfigStatus
+    // 已經是'ready'或確定'failed'，不會用還沒載入完成的中間狀態誤判。
     if(gpsConfigReadyPromise) await gpsConfigReadyPromise;
     // Punch-time freshness check：不能只信任頁面剛開啟時查到的IP——員工可能在家先開過這個
     // 頁面、到公司後SPA沒有重新整理，記憶體裡的detectedPublicIp可能還是舊網路的值。這裡每次
     // 打卡都重新確認一次（60秒內的結果會直接沿用，不必每次都真的呼叫ipify），最多等
-    // IP_LOOKUP_TIMEOUT_MS，逾時或失敗一律fallback GPS，不會卡住、也不會直接拒絕打卡。
-    if(gpsConfig.officeIp){
+    // IP_LOOKUP_TIMEOUT_MS，逾時或失敗一律轉GPS判斷，不會卡住。
+    if(gpsConfig.officeIp && gpsConfigStatus==='ready'){
       const willActuallyLookup=!(ipLookupStatus==='success' && ipCheckedAt && (Date.now()-ipCheckedAt)<IP_FRESHNESS_MS);
       if(willActuallyLookup) showToast('📡 正在確認辦公室網路…', 3000);
       await ensureFreshPublicIp();
     }
-    const ipStatus=officeIpMatchStatus();
-    if(ipStatus==='MATCH'){
-      logPunchLocationDecision('PASS_IP_MATCH');
-    } else if(currentGPS){
-      const dist=gpsDistance(currentGPS.lat,currentGPS.lng,gpsConfig.lat,gpsConfig.lng);
-      if(dist>gpsAllowedRadius()){
-        const code=ipStatus+'_GPS_OUT_OF_RANGE';
-        logPunchLocationDecision(code);
-        showToast('⚠ 不在辦公室範圍內，無法打卡（代碼:'+code+'）', 4000);
-        showLocationDiagAlert(code);
-        return;
-      }
-      logPunchLocationDecision(ipStatus+'_GPS_PASS');
-    } else {
-      const code=ipStatus+'_GPS_NOT_READY';
-      logPunchLocationDecision(code);
-      showToast('⚠ 定位尚未完成，請稍後再試（代碼:'+code+'）', 4000);
-      showLocationDiagAlert(code);
+    // 實際擋卡判斷跟即時狀態列（updateGpsBar）共用同一支getOfficeLocationDecision()，兩邊
+    // 保證一致——不會有畫面顯示可以打卡、實際按下去卻被擋（或反過來）的落差。
+    const decision=getOfficeLocationDecision();
+    logPunchLocationDecision(decision.code);
+    if(!decision.pass){
+      showToast('⚠ '+decision.message+'（代碼:'+decision.code+'）', 4000);
+      showLocationDiagAlert(decision.code);
       return;
     }
   }
