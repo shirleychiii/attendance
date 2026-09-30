@@ -1572,8 +1572,30 @@ function updateGpsBar(){
     setGpsBar('ok',`已定位（精確度 ±${currentGPS.acc} 公尺）`);
   }
 }
+// gpsConfig(lat/lng/radius/officeIp)過去只有loadAdminGpsConfig()（設定頁專用，還會寫入一堆
+// 只有admin畫面才存在的DOM元素，一般員工的頁面沒有那些元素會直接TypeError中斷）會填真正的值——
+// 代表一般員工的gpsConfig從登入到打卡全程都停在寫死的預設值，officeIp永遠是空字串。這比
+// 這幾天修的IP查詢race condition更根本：不管IP查詢時機抓得多準，officeIp本身是空的，比對
+// 永遠是NOT_CONFIGURED，直接fallback GPS，而GPS用的也是預設座標不是真正登記的辦公室位置。
+// 這支只更新gpsConfig變數本身，不碰任何DOM，任何角色的session都能安全呼叫。
+async function loadGpsConfigForSelf(){
+  try{
+    const cfgResult=await api('get_settings');
+    const cfg=cfgResult.settings||{};
+    gpsConfig.lat=parseFloat(cfg['辦公室緯度']||'25.0588');
+    gpsConfig.lng=parseFloat(cfg['辦公室經度']||'121.5395');
+    gpsConfig.radius=parseInt(cfg['圍欄半徑(m)']||'100');
+    gpsConfig.officeIp=cfg['辦公室網路公網IP']||'';
+  }catch(e){}
+}
+// doPunch()的location gate會await這個promise，確保真正比對前一定等到gpsConfig載入完成
+// （或至少嘗試過），不會用還沒載入的空值誤判。
+let gpsConfigReadyPromise=null;
 function startGPS(){
-  if(gpsConfig.officeIp) ensureFreshPublicIp().then(updateGpsBar);
+  gpsConfigReadyPromise=loadGpsConfigForSelf().then(()=>{
+    if(gpsConfig.officeIp) ensureFreshPublicIp().then(updateGpsBar);
+    updateGpsBar();
+  });
   if(!navigator.geolocation){setGpsBar('warn','此裝置不支援定位，仍可打卡');return;}
   setGpsBar('loading','定位中…');
   gpsWatcher=navigator.geolocation.watchPosition(
@@ -1958,6 +1980,10 @@ async function doPunch(type){
     }
   }
   if(currentMode==='辦公室'){
+    // gpsConfig(officeIp/lat/lng/radius)是從get_settings非同步載入的，員工登入後可能在
+    // loadGpsConfigForSelf()真正完成前就點了打卡——一定要先等這個promise，不然officeIp/
+    // lat/lng會是還沒載入的預設值，永遠判斷成NOT_CONFIGURED、GPS也拿錯座標比對。
+    if(gpsConfigReadyPromise) await gpsConfigReadyPromise;
     // Punch-time freshness check：不能只信任頁面剛開啟時查到的IP——員工可能在家先開過這個
     // 頁面、到公司後SPA沒有重新整理，記憶體裡的detectedPublicIp可能還是舊網路的值。這裡每次
     // 打卡都重新確認一次（60秒內的結果會直接沿用，不必每次都真的呼叫ipify），最多等
