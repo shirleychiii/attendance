@@ -197,6 +197,19 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 .data-table th{text-align:left;font-size:12px;font-weight:600;color:var(--text-soft);padding:8px 10px;border-bottom:1.5px solid var(--border);white-space:nowrap}
 .data-table td{padding:10px;border-bottom:1px solid var(--bg);color:var(--text);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
+.data-table tr.clickable-row{cursor:pointer}
+.data-table tr.clickable-row:hover td{background:var(--bg)}
+/* ── UI-0 Foundation：Page Header / Toolbar / Count badge ──────────────────
+   這幾個是這輪新增的reusable primitive，命名沿用既有class的風格（.section-label／
+   .form-select／.mode-tab等），不是審核中心專屬——之後其他頁改adaptive版面時可以直接用。 */
+.page-header{margin-bottom:16px}
+.page-header .page-title{font-size:20px;font-weight:700;color:var(--charcoal)}
+.page-header .page-subtitle{font-size:12.5px;color:var(--text-soft);margin-top:2px}
+.toolbar-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.toolbar-bar .form-input,.toolbar-bar .form-select{width:auto;flex:1;min-width:120px;padding:9px 12px;font-size:13px}
+.toolbar-bar .form-input{flex:2;min-width:160px}
+.count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--bg);color:var(--text-soft);font-size:10.5px;font-weight:700}
+.mode-tab.active .count-badge{background:rgba(255,255,255,.25);color:#fff}
 .stat-row{display:flex;gap:10px;flex-wrap:wrap}
 .stat-tile{flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
 .stat-tile .stat-label{font-size:12px;font-weight:500;color:var(--text-soft);margin-bottom:4px}
@@ -258,8 +271,8 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
   .header{padding:28px 32px 18px}
   .screen.dw-wide{max-width:1280px}
   .screen.dw-reading{max-width:840px}
-  #admin-sub-directory,#admin-sub-companyoverview,#admin-sub-reports,#admin-sub-latemanage{max-width:1280px;margin:0 auto}
-  #admin-sub-manage,#admin-sub-settings,#admin-sub-leavegrant,#admin-sub-review{max-width:1040px;margin:0 auto}
+  #admin-sub-directory,#admin-sub-companyoverview,#admin-sub-reports,#admin-sub-latemanage,#admin-sub-review{max-width:1280px;margin:0 auto}
+  #admin-sub-manage,#admin-sub-settings,#admin-sub-leavegrant{max-width:1040px;margin:0 auto}
   #toast{left:calc(240px + (100% - 240px)/2)}
   .drawer-overlay{align-items:stretch;justify-content:flex-end}
   .drawer-panel{max-width:480px;max-height:100vh;height:100vh;border-radius:0;animation:slideInRight .2s ease-out}
@@ -685,50 +698,38 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
     </div>
   </div>
 
-  <!-- ══ 審核中心 ══ -->
+  <!-- ══ 審核中心（UI-1 Work Queue：Desktop≥1200px用table+右側drawer，<1200px維持queue card+
+       detail sheet，同一份資料/同一套review action，只有呈現模板不同）══ -->
   <div id="admin-sub-review">
-    <div class="section-label">今日全員出勤</div>
-    <div class="card"><div id="admin-attendance"><div class="empty-state">載入中…</div></div></div>
-
-    <div class="section-label">待審核請假 <span id="pending-leave-count"></span></div>
-    <div class="card"><div id="admin-leave-list"><div class="empty-state">載入中…</div></div></div>
-    <div class="card" style="margin-top:8px">
-      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('leave')">
-        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
-        <div style="font-size:10px;color:var(--text-soft)" id="review-history-leave-arrow">▼</div>
-      </div>
-      <div id="review-history-leave" style="display:none"></div>
+    <div class="page-header">
+      <div class="page-title">審核中心</div>
+      <div class="page-subtitle">集中處理請假、補卡、加班與銷除申請</div>
     </div>
 
-    <div class="section-label">待審核補卡 <span id="pending-patch-count"></span></div>
-    <div class="card"><div id="admin-patch-list"><div class="empty-state">載入中…</div></div></div>
-    <div class="card" style="margin-top:8px">
-      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('patch')">
-        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
-        <div style="font-size:10px;color:var(--text-soft)" id="review-history-patch-arrow">▼</div>
+    <div class="card" id="rc-attendance-card">
+      <div class="settings-row" style="cursor:pointer" onclick="toggleRcAttendanceDetail()">
+        <div style="font-size:12.5px;font-weight:700">今日出勤摘要</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div id="rc-attendance-summary" style="font-size:11px;color:var(--text-soft)">載入中…</div>
+          <div style="font-size:10px;color:var(--text-soft)" id="rc-attendance-arrow">▼</div>
+        </div>
       </div>
-      <div id="review-history-patch" style="display:none"></div>
+      <div id="rc-attendance-detail" style="display:none"></div>
     </div>
 
-    <div class="section-label">待審核加班/提早上班 <span id="pending-ot-count"></span></div>
-    <div class="card"><div id="admin-ot-list"><div class="empty-state">載入中…</div></div></div>
-    <div class="card" style="margin-top:8px">
-      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('ot')">
-        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
-        <div style="font-size:10px;color:var(--text-soft)" id="review-history-ot-arrow">▼</div>
-      </div>
-      <div id="review-history-ot" style="display:none"></div>
+    <div class="mode-tabs" id="rc-type-tabs" style="margin-top:14px;overflow-x:auto"></div>
+
+    <div class="toolbar-bar">
+      <input type="text" class="form-input" id="rc-search" placeholder="搜尋員工姓名或員編" oninput="onRcFilterChange()">
+      <input type="month" class="form-input" id="rc-month" onchange="onRcFilterChange()">
+      <select class="form-select" id="rc-status" onchange="onRcStatusChange()">
+        <option value="待審核">待審核</option>
+        <option value="已核准">已核准</option>
+        <option value="已拒絕">已拒絕</option>
+      </select>
     </div>
 
-    <div class="section-label">待審核銷卡/銷假 <span id="pending-cancel-count"></span></div>
-    <div class="card"><div id="admin-cancel-list"><div class="empty-state">載入中…</div></div></div>
-    <div class="card" style="margin-top:8px">
-      <div class="settings-row" style="cursor:pointer" onclick="toggleReviewHistory('cancel')">
-        <div style="font-size:12px;color:var(--text-soft)">📜 已審核歷史</div>
-        <div style="font-size:10px;color:var(--text-soft)" id="review-history-cancel-arrow">▼</div>
-      </div>
-      <div id="review-history-cancel" style="display:none"></div>
-    </div>
+    <div class="card"><div id="rc-queue"><div class="empty-state">載入中…</div></div></div>
   </div>
 
   <!-- ══ 員工管理 ══ -->
@@ -2857,11 +2858,7 @@ function loadAdmin(){
   document.getElementById('emp-manage-section').style.display=session.role>=2?'block':'none';
   document.getElementById('tab-directory').style.display=session.role>=2?'block':'none';
   if(session.role>=2){ loadPayrollMonthsHistory(); loadEmpManageList(); loadAdminResetPw(); }
-  loadAdminAttendance();
-  loadAdminLeaveList();
-  loadAdminPatchList();
-  loadAdminOvertimeList();
-  loadAdminCancelList();
+  initReviewCenter();
   if(session.role>=2){
     loadAdminRoles();
     loadAdminGpsConfig();
@@ -2883,6 +2880,11 @@ function switchAdminSub(sub, btn){
     const el=document.getElementById('admin-sub-'+s);
     if(el) el.style.display = s===sub ? 'block' : 'none';
   });
+  // switchAdminSub開頭會把#screen-admin底下所有.mode-tab的active狀態清掉（給頂層sub-tab
+  // 按鈕用），這會連帶清掉審核中心自己巢狀的segmented type tabs視覺active狀態（rcState.
+  // filterType本身沒有壞，只是畫面上的.active class被清掉）——切回審核中心時重新render一次
+  // 蓋掉這個副作用，不需要改switchAdminSub本身給其他sub頁面用的選取邏輯。
+  if(sub==='review'){ renderRcTypeTabs(); }
   if(sub==='leavegrant'){ loadLeaveGrantList(); onLeaveGrantTypeChange(); }
   if(sub==='companyoverview'){ initCompanyOverview(); }
   if(sub==='latemanage'){ initLateManage(); }
@@ -2985,10 +2987,268 @@ function initReportsView(){
   document.getElementById('reports-desktop-finance-table').style.display=(desktop && document.getElementById('btn-export-payroll').style.display!=='none')?'block':'none';
 }
 
-// 今日出勤（從後端撈所有人今日打卡）
-async function loadAdminAttendance(){
-  const attEl=document.getElementById('admin-attendance');
-  try {
+// ══ 審核中心 Review Center（UI-1 Work Queue）══════════════════════════════
+// 統一的request identity一定要是kind+rowIdx（四張Sheet的rowIdx各自從2開始各自編號，
+// 只用rowIdx當key會撞——leave:27跟patch:27是完全不同的兩筆申請）。Drawer／選取狀態都存
+// {kind,rowIdx}，不能只存rowIdx數字。
+const RC_KINDS=['leave','patch','overtime','cancel'];
+const RC_KIND_LABEL={leave:'請假',patch:'補卡',overtime:'加班',cancel:'銷除'};
+const RC_REVIEW_ACTION={leave:'review_leave',patch:'review_patch',overtime:'review_overtime',cancel:'review_cancel'};
+const RC_STATUS_PILL={'待審核':'warning','已核准':'success','已拒絕':'danger'};
+let rcState={
+  pending:{leave:[],patch:[],overtime:[],cancel:[]},
+  // historyCache每個kind初始為null＝尚未載入；第一次把status切到已核准/已拒絕才會真的打4支
+  // adminView:true(不帶pendingOnly)的API，抓回來後存這裡，同一個session之後切換status/type/
+  // 搜尋/月份一律吃這份cache用純前端filter，不重複fetch，避免用久了每次開審核中心都要拉回
+  // 全公司好幾年份的歷史紀錄。
+  historyCache:{leave:null,patch:null,overtime:null,cancel:null},
+  filterType:'ALL', filterStatus:'待審核', search:'', month:'',
+};
+let rcDrawer=null;
+let rcAttendanceExpanded=false, rcAttendanceRows=[];
+
+function rcTag(list,kind){ return (list||[]).map(x=>Object.assign({},x,{kind})); }
+async function loadRcPending(){
+  const [lr,pr,or,cr]=await Promise.all([
+    api('get_leave_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]})),
+    api('get_patch_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]})),
+    api('get_overtime_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]})),
+    api('get_cancel_requests',{pendingOnly:true,adminView:true}).catch(()=>({requests:[]})),
+  ]);
+  rcState.pending={leave:rcTag(lr.requests,'leave'),patch:rcTag(pr.requests,'patch'),overtime:rcTag(or.requests,'overtime'),cancel:rcTag(cr.requests,'cancel')};
+}
+async function ensureRcHistoryLoaded(){
+  if(RC_KINDS.every(k=>rcState.historyCache[k]!==null)) return;
+  const [lr,pr,or,cr]=await Promise.all([
+    api('get_leave_requests',{adminView:true}).catch(()=>({requests:[]})),
+    api('get_patch_requests',{adminView:true}).catch(()=>({requests:[]})),
+    api('get_overtime_requests',{adminView:true}).catch(()=>({requests:[]})),
+    api('get_cancel_requests',{adminView:true}).catch(()=>({requests:[]})),
+  ]);
+  rcState.historyCache={leave:rcTag(lr.requests,'leave'),patch:rcTag(pr.requests,'patch'),overtime:rcTag(or.requests,'overtime'),cancel:rcTag(cr.requests,'cancel')};
+}
+function rcInvalidateHistoryCache(){ rcState.historyCache={leave:null,patch:null,overtime:null,cancel:null}; }
+
+// submittedAt是這輪唯一新增的read欄位；既有資料理論上不會是空的，但排序一定要有stable
+// fallback，不能因為某筆剛好是空字串／格式怪異就丟例外讓整個Queue壞掉。
+function rcSortKey(x){
+  if(!x.submittedAt) return -Infinity;
+  const t=new Date(x.submittedAt.replace(/\//g,'-')).getTime();
+  return isNaN(t) ? -Infinity : t;
+}
+function rcPrimaryDate(x){ return x.kind==='leave' ? x.start : x.date; }
+function rcDateRangeText(x){ return x.kind==='leave' ? (x.start+(x.start!==x.end?' ~ '+x.end:'')) : (x.date||''); }
+// 四種型別的「摘要」欄位組成方式本來就不一樣（這是Step1 Audit就確認過的資料shape差異），
+// 不強行統一欄位，只在顯示層各自組字串。
+function rcSummaryText(x){
+  if(x.kind==='leave'){
+    const days=Math.round((new Date(x.end)-new Date(x.start))/86400000)+1;
+    return `${x.type} · ${days}天${x.unit?'（'+x.unit+'）':''}`;
+  }
+  if(x.kind==='patch') return `${x.type==='上班卡'?'上班補卡':'下班補卡'} · ${x.time}`;
+  if(x.kind==='overtime') return x.type==='提早上班'?`提早上班 · 預計${x.startTime}上班`:`加班 · 至${x.endTime}`;
+  if(x.kind==='cancel') return `${x.cancelType}${x.relatedType?'（'+x.relatedType+'）':''}`;
+  return '';
+}
+function rcGetFilteredItems(){
+  const status=rcState.filterStatus;
+  const source = status==='待審核' ? rcState.pending : rcState.historyCache;
+  let items=[];
+  RC_KINDS.forEach(k=>{
+    if(rcState.filterType!=='ALL' && rcState.filterType!==k) return;
+    (source[k]||[]).forEach(x=>{ if(status==='待審核'||x.status===status) items.push(x); });
+  });
+  if(rcState.search.trim()){
+    const q=rcState.search.trim().toLowerCase();
+    items=items.filter(x=>(x.name||'').toLowerCase().includes(q)||(x.eid||'').toLowerCase().includes(q));
+  }
+  if(rcState.month){
+    const ym=rcState.month.replace(/-/g,'/');
+    items=items.filter(x=>{ const d=rcPrimaryDate(x); return d && d.startsWith(ym); });
+  }
+  items.sort((a,b)=>rcSortKey(b)-rcSortKey(a));
+  return items;
+}
+function rcPendingCounts(){
+  const c={ALL:0,leave:0,patch:0,overtime:0,cancel:0};
+  RC_KINDS.forEach(k=>{ c[k]=rcState.pending[k].length; c.ALL+=c[k]; });
+  return c;
+}
+
+function renderRcTypeTabs(){
+  const counts=rcPendingCounts();
+  const opts=[{key:'ALL',label:'全部'},{key:'leave',label:'請假'},{key:'patch',label:'補卡'},{key:'overtime',label:'加班'},{key:'cancel',label:'銷除'}];
+  document.getElementById('rc-type-tabs').innerHTML=opts.map(o=>
+    `<button class="mode-tab ${rcState.filterType===o.key?'active':''}" onclick="onRcTypeChange('${o.key}')">${o.label} <span class="count-badge">${counts[o.key]}</span></button>`
+  ).join('');
+}
+function onRcTypeChange(key){ rcState.filterType=key; renderReviewCenter(); }
+function onRcFilterChange(){
+  rcState.search=document.getElementById('rc-search').value;
+  rcState.month=document.getElementById('rc-month').value;
+  renderRcQueue();
+}
+async function onRcStatusChange(){
+  rcState.filterStatus=document.getElementById('rc-status').value;
+  if(rcState.filterStatus!=='待審核'){
+    document.getElementById('rc-queue').innerHTML='<div class="empty-state">載入中…</div>';
+    await ensureRcHistoryLoaded();
+  }
+  renderReviewCenter();
+}
+function renderReviewCenter(){ renderRcTypeTabs(); renderRcQueue(); }
+function renderRcQueue(){
+  const items=rcGetFilteredItems();
+  const el=document.getElementById('rc-queue');
+  if(!el) return;
+  if(!items.length){ el.innerHTML='<div class="empty-state">目前沒有符合條件的申請</div>'; return; }
+  el.innerHTML=isDesktopWidth()?renderRcQueueTable(items):renderRcQueueCards(items);
+}
+function renderRcQueueTable(items){
+  const rows=items.map(x=>`
+    <tr class="clickable-row" onclick="openRcDrawer('${x.kind}',${x.rowIdx})">
+      <td style="font-weight:600">${RC_KIND_LABEL[x.kind]}</td>
+      <td style="font-weight:600">${x.name}<span style="color:var(--text-soft);font-weight:400"> ${x.eid}</span></td>
+      <td>${rcDateRangeText(x)}</td>
+      <td style="color:var(--text-soft)">${rcSummaryText(x)}</td>
+      <td style="color:var(--text-soft);white-space:nowrap">${x.submittedAt||'—'}</td>
+      <td><span class="status-pill ${RC_STATUS_PILL[x.status]||'neutral'}">${x.status}</span></td>
+      <td style="text-align:right"><button class="btn-secondary" style="width:auto;padding:6px 12px" onclick="event.stopPropagation();openRcDrawer('${x.kind}',${x.rowIdx})">查看</button></td>
+    </tr>`).join('');
+  return `<div style="overflow-x:auto"><table class="data-table">
+    <thead><tr><th>類型</th><th>員工</th><th>日期／期間</th><th>摘要</th><th>送出時間</th><th>狀態</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+function renderRcQueueCards(items){
+  return items.map(x=>`
+    <div class="leave-req-card" style="cursor:pointer" onclick="openRcDrawer('${x.kind}',${x.rowIdx})">
+      <div class="leave-req-header">
+        <span class="leave-req-name">${x.name} <span style="font-size:11px;color:var(--text-soft);font-weight:400">${x.eid}</span></span>
+        <span class="status-pill ${RC_STATUS_PILL[x.status]||'neutral'}">${x.status}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-soft);margin:-6px 0 6px">${RC_KIND_LABEL[x.kind]} · ${rcDateRangeText(x)}</div>
+      <div class="leave-req-detail" style="margin-bottom:0">${rcSummaryText(x)}</div>
+    </div>`).join('');
+}
+window.addEventListener('resize', debounce(()=>{ if(document.getElementById('admin-sub-review')?.style.display!=='none') renderRcQueue(); }, 200));
+
+// ── Detail Drawer：沿用#terms-drawer-root共用container（跟任用條件/更正員編/Preview
+// picker同一個插槽），開啟時把其他drawer狀態關掉，避免同一個container被搞混。 ──────
+function openRcDrawer(kind,rowIdx){
+  termsDrawer=null; eidCorrectionDrawer=null; previewPickerOpen=false;
+  const source = rcState.filterStatus==='待審核' ? rcState.pending : rcState.historyCache;
+  const item=(source[kind]||[]).find(x=>x.rowIdx===rowIdx);
+  if(!item){ showToast('⚠ 找不到這筆申請，可能已被其他人審核'); return; }
+  rcDrawer={kind,rowIdx,item,comment:''};
+  renderRcDrawer();
+}
+function closeRcDrawer(){ rcDrawer=null; document.getElementById('terms-drawer-root').innerHTML=''; }
+function rcDrawerBodyRows(x){
+  const rows=[['日期／期間', rcDateRangeText(x)]];
+  if(x.kind==='leave'){
+    rows.push(['假別',x.type]);
+    rows.push(['時數單位',x.unit||'—']);
+    // Detail要比Queue摘要更完整，不能只有Queue看得到天數——多日才額外顯示天數，單日的天數
+    // 本來就等於日期期間本身，不用重複講一次。只用現有start/end安全算天數，不推導不存在的
+    // 實際扣假時數。
+    const leaveDays=Math.round((new Date(x.end)-new Date(x.start))/86400000)+1;
+    if(leaveDays>1) rows.push(['天數',leaveDays+'天']);
+    if(x.proofUrl) rows.push(['看診證明',`<a href="${x.proofUrl}" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>`]);
+  } else if(x.kind==='patch'){
+    rows.push(['補卡類型',x.type==='上班卡'?'上班補卡':'下班補卡']);
+    rows.push(['補卡時間',x.time]);
+  } else if(x.kind==='overtime'){
+    rows.push(['申請類型',x.type]);
+    rows.push(['開始時間',x.startTime||'—']);
+    rows.push(['結束時間',x.endTime||'—']);
+    rows.push(['補休或加班費',x.compensation||'—']);
+  } else if(x.kind==='cancel'){
+    rows.push(['銷除類型',x.cancelType]);
+    if(x.relatedType) rows.push(['對應類型',x.relatedType]);
+  }
+  rows.push(['原因／說明', x.note||'—']);
+  rows.push(['送出時間', x.submittedAt||'—']);
+  return rows;
+}
+function renderRcDrawer(){
+  const root=document.getElementById('terms-drawer-root');
+  if(!rcDrawer){ root.innerHTML=''; return; }
+  const x=rcDrawer.item;
+  const isPending=x.status==='待審核';
+  const days=x.kind==='leave'?Math.round((new Date(x.end)-new Date(x.start))/86400000)+1:null;
+  const needsHighestAdmin = x.kind==='leave' && days>1 && session.role<2;
+  const missingProof = x.kind==='leave' && x.type==='病假' && !x.proofUrl;
+  let footer='';
+  if(isPending && needsHighestAdmin){
+    footer=`<div style="font-size:12px;color:var(--amber);padding:8px 0">⚠ ${days}天假需最高管理者審核</div>`;
+  } else if(isPending){
+    footer=`
+      ${missingProof?'<div style="font-size:12px;color:var(--amber);padding:4px 0 8px">⚠ 尚未上傳看診證明，需員工補傳後才能核准</div>':''}
+      <div style="margin-top:4px"><div class="form-label-sm">審核備註（拒絕時必填，核准時選填）</div>
+        <input type="text" class="form-input" id="rc-drawer-comment" value="${rcDrawer.comment||''}" oninput="rcDrawer.comment=this.value">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn-secondary" style="flex:none;width:auto;padding:12px 20px;color:var(--rose);border-color:var(--rose-lo)" onclick="submitRcReview('已拒絕')">拒絕</button>
+        <button class="btn-primary" style="flex:1" ${missingProof?'disabled style="opacity:.45;cursor:not-allowed"':''} onclick="submitRcReview('已核准')">核准</button>
+      </div>
+      <div class="form-msg" id="rc-drawer-msg"></div>`;
+  } else {
+    // 已審核案件一律read-only，不再顯示核准／拒絕操作，只顯示既有API已提供的審核資訊。
+    footer=`<div style="margin-top:6px;padding-top:12px;border-top:1px solid var(--border)">
+      <div class="form-label-sm">審核者</div><div class="body-text">${x.reviewer||'—'}${x.reviewTime?'（'+x.reviewTime+'）':''}</div>
+      ${x.reason?`<div class="form-label-sm" style="margin-top:8px">審核備註</div><div class="body-text">${x.reason}</div>`:''}
+    </div>`;
+  }
+  root.innerHTML=`<div class="drawer-overlay" onclick="if(event.target===this)closeRcDrawer()">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <div>
+          <div class="section-title">${RC_KIND_LABEL[x.kind]}申請</div>
+          <div class="meta-text">${x.name}（${x.eid}）${x.dept||x.title?' · '+(x.dept||'')+' '+(x.title||''):''}</div>
+        </div>
+        <button class="icon-btn" aria-label="關閉" onclick="closeRcDrawer()">${icon('x')}</button>
+      </div>
+      <div style="margin-bottom:12px"><span class="status-pill ${RC_STATUS_PILL[x.status]||'neutral'}">${x.status}</span></div>
+      ${rcDrawerBodyRows(x).map(([label,val])=>`<div style="margin-bottom:10px"><div class="form-label-sm">${label}</div><div class="body-text">${val}</div></div>`).join('')}
+      ${footer}
+    </div>
+  </div>`;
+}
+async function submitRcReview(status){
+  const d=rcDrawer; if(!d) return;
+  const comment=(d.comment||'').trim();
+  if(status==='已拒絕' && !comment){ showToast('⚠ 拒絕時請填寫審核備註'); return; }
+  const msg=document.getElementById('rc-drawer-msg');
+  try{
+    await api(RC_REVIEW_ACTION[d.kind], {rowIdx:d.rowIdx, status, reason:comment});
+    showToast('✓ 審核完成');
+    closeRcDrawer();
+    await refreshReviewCenter();
+  }catch(e){
+    if(msg){ msg.textContent='⚠ '+e.message; msg.className='form-msg err'; } else showToast('⚠ '+e.message);
+  }
+}
+
+// 審核完成後不再整頁loadAdmin()——只重新整理Review Center自己需要的東西：Queue本身、
+// 待審數量、admin badge、今日出勤摘要（核准補卡/銷卡/請假都可能讓今日出勤內容變化，
+// 不能只把那一列從Queue移掉、旁邊摘要卻還停在舊資料）。History cache一併invalidate，
+// 避免使用者切到已核准/已拒絕時還看到審核前的舊狀態。
+async function refreshReviewCenter(){
+  rcInvalidateHistoryCache();
+  await loadRcPending();
+  if(rcState.filterStatus!=='待審核') await ensureRcHistoryLoaded();
+  renderReviewCenter();
+  loadRcAttendanceSummary();
+  loadAdminBadge();
+}
+
+// ── 今日出勤摘要（原本的「今日全員出勤」大卡片收成compact secondary section，展開才看明細；
+// 之後這塊會整個搬到團隊出勤／出勤管理，這輪UI-1不做那個IA migration，只先收斂視覺份量）──
+async function loadRcAttendanceSummary(){
+  const sumEl=document.getElementById('rc-attendance-summary');
+  if(!sumEl) return;
+  try{
     const [empResult, attResult] = await Promise.all([
       api('get_employees'),
       api('get_attendance',{eid:'all',month:todayKey().slice(0,7)}),
@@ -2996,208 +3256,50 @@ async function loadAdminAttendance(){
     const employees=empResult.employees||[];
     const today=todayKey();
     const todayRecords=(attResult.records||[]).filter(r=>r.date===today);
-    if(!employees.length){
-      attEl.innerHTML='<div class="empty-state">尚無員工資料</div>';
-    } else {
-      attEl.innerHTML=employees.map(e=>{
-        const hasIn=todayRecords.find(r=>r.eid===e.eid&&r.type==='上班');
-        const hasOut=todayRecords.find(r=>r.eid===e.eid&&r.type==='下班');
-        let tagClass='tag-none', tagText='尚未打卡';
-        if(hasIn&&hasOut){ tagClass='tag-out'; tagText=`${hasIn.time} → ${hasOut.time}`; }
-        else if(hasIn){ tagClass='tag-in'; tagText=`${hasIn.time} 上班`; }
-        return `<div class="emp-row-admin">
-          <div class="emp-avatar-sm">${e.name.slice(-1)}</div>
-          <div class="emp-info">
-            <div class="emp-name-sm">${e.name}${e.nick?'（'+e.nick+'）':''}</div>
-            <div class="emp-meta-sm">${e.eid} · ${e.dept||''} ${e.title||''}</div>
-          </div>
-          <div class="punch-status-tag ${tagClass}">${tagText}</div>
-        </div>`;
-      }).join('');
-    }
-  } catch(e){ attEl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+    let done=0, inProgress=0, notYet=0;
+    rcAttendanceRows=employees.map(e=>{
+      const hasIn=todayRecords.find(r=>r.eid===e.eid&&r.type==='上班');
+      const hasOut=todayRecords.find(r=>r.eid===e.eid&&r.type==='下班');
+      let tagClass='tag-none', tagText='尚未打卡';
+      if(hasIn&&hasOut){ tagClass='tag-out'; tagText=`${hasIn.time} → ${hasOut.time}`; done++; }
+      else if(hasIn){ tagClass='tag-in'; tagText=`${hasIn.time} 上班`; inProgress++; }
+      else notYet++;
+      return {e,tagClass,tagText};
+    });
+    sumEl.textContent=`已到 ${done}・上班中 ${inProgress}・未到 ${notYet}`;
+    if(rcAttendanceExpanded) renderRcAttendanceDetail();
+  }catch(e){ sumEl.textContent='載入失敗'; }
+}
+function toggleRcAttendanceDetail(){
+  rcAttendanceExpanded=!rcAttendanceExpanded;
+  document.getElementById('rc-attendance-detail').style.display=rcAttendanceExpanded?'block':'none';
+  document.getElementById('rc-attendance-arrow').textContent=rcAttendanceExpanded?'▲':'▼';
+  if(rcAttendanceExpanded) renderRcAttendanceDetail();
+}
+function renderRcAttendanceDetail(){
+  const el=document.getElementById('rc-attendance-detail');
+  if(!rcAttendanceRows.length){ el.innerHTML='<div class="empty-state">尚無員工資料</div>'; return; }
+  el.innerHTML=rcAttendanceRows.map(({e,tagClass,tagText})=>`<div class="emp-row-admin">
+    <div class="emp-avatar-sm">${e.name.slice(-1)}</div>
+    <div class="emp-info">
+      <div class="emp-name-sm">${e.name}${e.nick?'（'+e.nick+'）':''}</div>
+      <div class="emp-meta-sm">${e.eid} · ${e.dept||''} ${e.title||''}</div>
+    </div>
+    <div class="punch-status-tag ${tagClass}">${tagText}</div>
+  </div>`).join('');
 }
 
-// 待審核請假
-async function loadAdminLeaveList(){
-  const ll=document.getElementById('admin-leave-list');
-  ll.innerHTML='<div class="empty-state">載入中…</div>';
-  try {
-    const result=await api('get_leave_requests',{pendingOnly:true,adminView:true});
-    const pending=result.requests||[];
-    document.getElementById('pending-leave-count').textContent=pending.length?`（${pending.length}）`:'';
-    if(!pending.length){ll.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
-    ll.innerHTML=pending.map(r=>{
-      const days=Math.round((new Date(r.end)-new Date(r.start))/86400000)+1;
-      const canReview=session.role>=2||(session.role>=1&&days<=1);
-      const missingProof=r.type==='病假'&&!r.proofUrl;
-      const rid='leave_'+r.rowIdx;
-      return '<div class="leave-req-card">'
-        +'<div class="leave-req-header">'
-        +'<span class="leave-req-name">'+r.name+' <span style="font-size:11px;color:var(--text-soft);font-weight:400">'+r.eid+'</span></span>'
-        +'<span class="leave-req-type ltype-'+r.type+'">'+r.type+' · '+days+'天</span>'
-        +'</div>'
-        +'<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">'+(r.dept||'')+' '+(r.title||'')+'</div>'
-        +'<div class="leave-req-detail">'+r.start+(r.start!==r.end?' ~ '+r.end:'')+' · '+(r.unit||'')+(r.note?'<br>說明：'+r.note:'')+(r.proofUrl?'<br><a href="'+r.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':'')+'</div>'
-        +(missingProof?'<div style="font-size:11px;color:var(--amber);padding:4px 0">⚠ 尚未上傳看診證明，需員工補傳後才能核准</div>':'')
-        +(canReview
-          ?'<div style="margin-bottom:8px"><input type="text" id="'+rid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>'
-          +'<div class="leave-req-actions">'
-          +'<button class="btn-approve" '+(missingProof?'disabled style="opacity:.45;cursor:not-allowed"':'')+' onclick="reviewLeaveWithComment('+r.rowIdx+',\'已核准\',\''+rid+'_comment\')">✓ 核准</button>'
-          +'<button class="btn-reject" onclick="reviewLeaveWithComment('+r.rowIdx+',\'已拒絕\',\''+rid+'_comment\')">✗ 拒絕</button>'
-          +'</div>'
-          :'<div style="font-size:11px;color:var(--amber);padding:4px 0">⚠ '+days+'天假需最高管理者審核</div>'
-        )
-        +'</div>';
-    }).join('');
-  } catch(e){ ll.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
-}
-
-// 待審核補卡
-async function loadAdminPatchList(){
-  const pl=document.getElementById('admin-patch-list');
-  pl.innerHTML='<div class="empty-state">載入中…</div>';
-  try {
-    const result=await api('get_patch_requests',{pendingOnly:true,adminView:true});
-    const pending=result.requests||[];
-    document.getElementById('pending-patch-count').textContent=pending.length?`（${pending.length}）`:'';
-    if(!pending.length){pl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
-    pl.innerHTML=pending.map(r=>{
-      const pid='patch_'+r.rowIdx;
-      return '<div class="leave-req-card">'
-        +'<div class="leave-req-header">'
-        +'<span class="leave-req-name">'+r.name+' <span style="font-size:11px;color:var(--text-soft);font-weight:400">'+r.eid+'</span></span>'
-        +'<span class="leave-req-type ltype-補卡">'+(r.type==='上班卡'?'上班補卡':'下班補卡')+'</span>'
-        +'</div>'
-        +'<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">'+(r.dept||'')+' '+(r.title||'')+'</div>'
-        +'<div class="leave-req-detail">'+r.date+' '+r.time+'<br>原因：'+r.note+'</div>'
-        +'<div style="margin-bottom:8px"><input type="text" id="'+pid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>'
-        +'<div class="leave-req-actions">'
-        +'<button class="btn-approve" onclick="reviewPatchWithComment('+r.rowIdx+',\'已核准\',\''+pid+'_comment\')">✓ 核准</button>'
-        +'<button class="btn-reject" onclick="reviewPatchWithComment('+r.rowIdx+',\'已拒絕\',\''+pid+'_comment\')">✗ 拒絕</button>'
-        +'</div>'
-        +'</div>';
-    }).join('');
-  } catch(e){ pl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
-}
-
-// 待審核加班
-async function loadAdminOvertimeList(){
-  const otl=document.getElementById('admin-ot-list');
-  otl.innerHTML='<div class="empty-state">載入中…</div>';
-  try {
-    const otresult=await api('get_overtime_requests',{pendingOnly:true,adminView:true});
-    const pendingOT=otresult.requests||[];
-    document.getElementById('pending-ot-count').textContent=pendingOT.length?`（${pendingOT.length}）`:'';
-    if(!pendingOT.length){otl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';}
-    else{
-      otl.innerHTML=pendingOT.map(r=>{
-        const oid='ot_'+r.rowIdx;
-        return '<div class="leave-req-card">'
-          +'<div class="leave-req-header">'
-          +'<span class="leave-req-name">'+r.name+' <span style="font-size:11px;color:var(--text-soft);font-weight:400">'+r.eid+'</span></span>'
-          +'<span class="leave-req-type ltype-補卡">'+r.type+'</span>'
-          +'</div>'
-          +'<div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">'+(r.dept||'')+' '+(r.title||'')+'</div>'
-          +'<div class="leave-req-detail">'
-          +r.date+' · '+(r.type==='提早上班'?'預計 '+r.startTime+' 上班':'加班至 '+r.endTime)
-          +'<br>原因：'+r.note+' · '+r.compensation
-          +'</div>'
-          +'<div style="margin-bottom:8px"><input type="text" id="'+oid+'_comment" class="form-input" placeholder="審核備註（拒絕時必填）" style="font-size:12px;padding:9px 12px"></div>'
-          +'<div class="leave-req-actions">'
-          +'<button class="btn-approve" onclick="reviewOTWithComment('+r.rowIdx+',\'已核准\',\''+oid+'_comment\')">✓ 核准</button>'
-          +'<button class="btn-reject" onclick="reviewOTWithComment('+r.rowIdx+',\'已拒絕\',\''+oid+'_comment\')">✗ 拒絕</button>'
-          +'</div>'
-          +'</div>';
-      }).join('');
-    }
-  } catch(e){ otl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
-}
-
-// 待審核銷卡/銷假
-async function loadAdminCancelList(){
-  const cl=document.getElementById('admin-cancel-list');
-  cl.innerHTML='<div class="empty-state">載入中…</div>';
-  try {
-    const result=await api('get_cancel_requests',{pendingOnly:true,adminView:true});
-    const pending=result.requests||[];
-    document.getElementById('pending-cancel-count').textContent=pending.length?`（${pending.length}）`:'';
-    if(!pending.length){cl.innerHTML='<div class="empty-state">目前沒有待審核項目</div>';return;}
-    cl.innerHTML=pending.map(r=>{
-      const cid='cancel_'+r.rowIdx;
-      return `<div class="leave-req-card">
-        <div class="leave-req-header">
-          <span class="leave-req-name">${r.name} <span style="font-size:11px;color:var(--text-soft);font-weight:400">${r.eid}</span></span>
-          <span class="leave-req-type ltype-補卡">${r.cancelType}</span>
-        </div>
-        <div style="font-size:11px;color:var(--text-soft);margin:-6px 0 8px">${r.dept||''} ${r.title||''}</div>
-        <div class="leave-req-detail">${r.date}${r.relatedType?' · '+r.relatedType:''}<br>原因：${r.note}</div>
-        <div style="margin-bottom:8px"><input type="text" id="${cid}_comment" class="form-input" placeholder="審核備註（拒絕時必填，核准時選填）" style="font-size:12px;padding:9px 12px"></div>
-        <div class="leave-req-actions">
-          <button class="btn-approve" onclick="reviewCancelWithComment(${r.rowIdx},'已核准','${cid}_comment')">✓ 核准</button>
-          <button class="btn-reject" onclick="reviewCancelWithComment(${r.rowIdx},'已拒絕','${cid}_comment')">✗ 拒絕</button>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e){ cl.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
-}
-async function reviewCancelWithComment(rowIdx, status, commentId){
-  const comment = document.getElementById(commentId)?.value?.trim()||'';
-  if(status==='已拒絕' && !comment){ showToast('⚠ 拒絕時請填寫審核備註'); return; }
-  try{ await api('review_cancel',{rowIdx,status,reason:comment}); showToast('✓ 審核完成'); loadAdminCancelList(); loadAdminBadge(); }
-  catch(e){ showToast('⚠ '+e.message); }
-}
-
-// ── 審核中心：已審核歷史（已核准/已拒絕，不再是待審核清單就看不到了）──
-let reviewHistoryExpanded={leave:false,patch:false,ot:false,cancel:false};
-const REVIEW_HIST_SC={'待審核':'#854F0B','已核准':'#2a7a5a','已拒絕':'#bd898e','已銷假':'#7a7875'};
-
-async function toggleReviewHistory(kind){
-  const el=document.getElementById('review-history-'+kind);
-  const arrow=document.getElementById('review-history-'+kind+'-arrow');
-  reviewHistoryExpanded[kind]=!reviewHistoryExpanded[kind];
-  el.style.display=reviewHistoryExpanded[kind]?'block':'none';
-  arrow.textContent=reviewHistoryExpanded[kind]?'▲':'▼';
-  if(!reviewHistoryExpanded[kind])return;
-  el.innerHTML='<div class="empty-state">載入中…</div>';
-  try{
-    let items=[];
-    if(kind==='leave'){
-      const r=await api('get_leave_requests',{adminView:true});
-      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.type, status:x.status,
-        detail:`${x.start}${x.start!==x.end?' ~ '+x.end:''} · ${x.unit||''}${x.proofUrl?'<br><a href="'+x.proofUrl+'" target="_blank" style="color:var(--deep-blue)">📎 查看看診證明</a>':''}`,
-        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
-      }));
-    } else if(kind==='patch'){
-      const r=await api('get_patch_requests',{adminView:true});
-      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+(x.type==='上班卡'?'上班補卡':'下班補卡'), status:x.status,
-        detail:`${x.date} ${x.time}`,
-        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
-      }));
-    } else if(kind==='ot'){
-      const r=await api('get_overtime_requests',{adminView:true});
-      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.type, status:x.status,
-        detail:`${x.date} · ${x.type==='提早上班'?'預計 '+x.startTime+' 上班':'加班至 '+x.endTime}`,
-        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
-      }));
-    } else if(kind==='cancel'){
-      const r=await api('get_cancel_requests',{adminView:true});
-      items=(r.requests||[]).filter(x=>x.status!=='待審核').sort((a,b)=>b.rowIdx-a.rowIdx).slice(0,20).map(x=>({
-        title:x.name+'（'+x.eid+'）'+(x.dept||x.title?' '+(x.dept||'')+' '+(x.title||''):'')+' · '+x.cancelType, status:x.status,
-        detail:`${x.date}${x.relatedType?' · '+x.relatedType:''}`,
-        reviewer:x.reviewer, reviewTime:x.reviewTime, reason:x.reason,
-      }));
-    }
-    if(!items.length){ el.innerHTML='<div class="empty-state">尚無已審核紀錄</div>'; return; }
-    el.innerHTML=items.map(it=>`
-      <div class="leave-req-card">
-        <div class="leave-req-header"><span class="leave-req-name">${it.title}</span><span style="font-size:11px;font-weight:700;color:${REVIEW_HIST_SC[it.status]||'#854F0B'}">${it.status}</span></div>
-        <div class="leave-req-detail">${it.detail}${it.reviewer?'<br>審核者：'+it.reviewer+(it.reviewTime?'（'+it.reviewTime+'）':''):''}${it.reason?'<br>審核備註：'+it.reason:''}</div>
-      </div>`).join('');
-  }catch(e){ el.innerHTML=`<div class="empty-state">載入失敗：${e.message}</div>`; }
+// 進入審核中心（或任何會觸發loadAdmin()的admin sub-tab）時的入口——只載入pending（快），
+// 只有使用者自己切到已核准/已拒絕時才會第一次載入歷史。
+async function initReviewCenter(){
+  const searchEl=document.getElementById('rc-search'), monthEl=document.getElementById('rc-month'), statusEl=document.getElementById('rc-status');
+  if(searchEl) searchEl.value=rcState.search;
+  if(monthEl) monthEl.value=rcState.month;
+  if(statusEl) statusEl.value=rcState.filterStatus;
+  await loadRcPending();
+  if(rcState.filterStatus!=='待審核') await ensureRcHistoryLoaded();
+  renderReviewCenter();
+  loadRcAttendanceSummary();
 }
 
 // 重設密碼
@@ -3876,7 +3978,7 @@ function renderPreviewBar(){
   }
 }
 function openPreviewPicker(autoExpandInspector){
-  termsDrawer=null; eidCorrectionDrawer=null;
+  termsDrawer=null; eidCorrectionDrawer=null; rcDrawer=null;
   previewPickerOpen=true; previewInspectorExpanded=!!autoExpandInspector; previewDebugExpanded=false;
   renderPreviewPickerDrawer();
 }
@@ -3982,7 +4084,7 @@ function mondayOf(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate
 function fmtYmd(d){ return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
 function addDaysYmd(dateStr,n){ const [y,m,d]=dateStr.split('/').map(Number); const dt=new Date(y,m-1,d+n); return fmtYmd(dt); }
 function openEmpTermsDrawer(eid,name){
-  eidCorrectionDrawer=null; previewPickerOpen=false;
+  eidCorrectionDrawer=null; previewPickerOpen=false; rcDrawer=null;
   termsDrawer={eid,name,tab:'terms',termsOverview:null,schedules:null,weekStart:fmtYmd(mondayOf(new Date())),monthSummary:null,month:todayKey().slice(0,7),showNewTerms:false,showNewSchedule:false};
   renderTermsDrawer();
   loadTermsDrawerTab('terms');
@@ -3994,7 +4096,7 @@ function closeTermsDrawer(){ termsDrawer=null; document.getElementById('terms-dr
 // 順手把另外兩種drawer的狀態關掉，避免同一個container被搞混。 ─────────────────────
 let eidCorrectionDrawer=null;
 function openEidCorrectionDrawer(eid,name){
-  termsDrawer=null; previewPickerOpen=false;
+  termsDrawer=null; previewPickerOpen=false; rcDrawer=null;
   eidCorrectionDrawer={currentEid:eid,currentName:name,newEid:'',reason:'',preview:null,previewLoading:false,submitting:false,msg:'',msgClass:''};
   renderEidCorrectionDrawer();
 }
@@ -5279,37 +5381,12 @@ async function saveEmpEditLeave(rowIdx){
   }catch(e){ showToast('⚠ '+e.message); }
 }
 
-async function reviewLeaveWithComment(rowIdx, status, commentId){
-  const comment = document.getElementById(commentId)?.value?.trim()||'';
-  if(status==='已拒絕' && !comment){
-    showToast('⚠ 拒絕時請填寫審核備註'); return;
-  }
-  try{ await api('review_leave',{rowIdx,status,reason:comment}); showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge(); }
-  catch(e){ showToast('⚠ '+e.message); }
-}
-async function reviewPatchWithComment(rowIdx, status, commentId){
-  const comment = document.getElementById(commentId)?.value?.trim()||'';
-  if(status==='已拒絕' && !comment){
-    showToast('⚠ 拒絕時請填寫審核備註'); return;
-  }
-  try{ await api('review_patch',{rowIdx,status,reason:comment}); showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge(); }
-  catch(e){ showToast('⚠ '+e.message); }
-}
 async function promptResetPw(eid,name){
   const newPw=prompt(`重設 ${name} 的密碼（至少6碼，留空則重設為員編後三碼）：`);
   if(newPw===null)return;
   try{ await api('reset_password',{targetEid:eid,newPw}); showToast(`✓ ${name} 的密碼已重設`); }
   catch(e){ showToast('⚠ '+e.message); }
 }
-async function reviewOTWithComment(rowIdx, status, commentId){
-  const comment=document.getElementById(commentId)?.value?.trim()||'';
-  if(status==='已拒絕'&&!comment){showToast('⚠ 拒絕時請填寫審核備註');return;}
-  try{
-    await api('review_overtime',{rowIdx,status,reason:comment});
-    showToast('✓ 審核完成'); loadAdmin(); loadAdminBadge();
-  }catch(e){ showToast('⚠ '+e.message); }
-}
-
 async function setRole(eid,roleVal){
   try{ await api('set_role',{targetEid:eid,role:parseInt(roleVal)}); showToast('✓ 權限已更新'); }
   catch(e){ showToast('⚠ '+e.message); }
