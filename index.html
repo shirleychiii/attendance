@@ -2042,9 +2042,9 @@ async function doPunch(type){
   try{ await doPunchInner(type); }
   finally{
     punchInFlight=false;
-    // 按鈕狀態由loadTodayPunch依今日紀錄決定；它沒執行到（例如被前置檢查擋掉）時這裡先解鎖
-    if(bIn&&!/已完成/.test(bIn.getAttribute('data-done')||'')) bIn.disabled=false;
-    if(bOut&&!/已完成/.test(bOut.getAttribute('data-done')||'')) bOut.disabled=false;
+    if(bIn) bIn.disabled=false; if(bOut) bOut.disabled=false;
+    // 依今日實際紀錄還原按鈕文字（失敗或被擋掉時，不要停在「打卡中…」）
+    try{ await loadTodayPunch(); }catch(_){}
   }
 }
 async function doPunchInner(type){
