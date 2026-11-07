@@ -721,7 +721,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-hei
 
     <div class="toolbar-bar">
       <input type="text" class="form-input" id="rc-search" placeholder="搜尋員工姓名或員編" oninput="onRcFilterChange()">
-      <input type="month" class="form-input" id="rc-month" onchange="onRcFilterChange()">
+      <select class="form-select" id="rc-month" onchange="onRcFilterChange()"><option value="">全部月份</option></select>
       <select class="form-select" id="rc-status" onchange="onRcStatusChange()">
         <option value="待審核">待審核</option>
         <option value="已核准">已核准</option>
@@ -1212,6 +1212,7 @@ const DEFAULT_SHIFT={ flexStart:'09:00', flexEnd:'09:30', workEnd:'18:00', lunch
 // shiftDefsCache 存「班別A/B目前實際設定的時間」，每次切換頁籤/打卡都會重新抓一次（見 refreshShiftDefs），
 // 這樣管理者改了班別時間設定後，已經登入中的員工不用登出重登，下次操作就會用到新設定
 let shiftDefsCache=null;
+let freshPunchProfile=null; // {scheduleModel,todaySchedule}｜null＝這次沒能取得，視為無法確認ROSTER
 function shMin(hhmm){ const[h,m]=String(hhmm||'0:0').split(':').map(Number); return h*60+(m||0); }
 function shHhmm(mins){ const m=((mins%1440)+1440)%1440; return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
 function buildShift(name,flexStart,flexEnd,lunchStart,lunchEnd){
@@ -1232,6 +1233,12 @@ async function refreshShiftDefs(){
     // 管理者把「我」改到另一個班別代碼(A/B)這種情況，光靠上面的 shiftDefsCache 還不夠
     // （那只更新兩個班別各自的時間內容），這裡額外把 session 裡記著的班別代碼本身也同步成最新的，
     // 這樣不用登出重登、下次打卡或切頁籤就能用新班別
+    // 打卡規則需要「當下」的排班模式／今日排班（不能用登入當下存在session裡、可能已經過期的
+    // scheduleModel），每次呼叫都重設：這次沒取到就是null，呼叫端一律當成「無法確認是ROSTER」，
+    // 走保守（原本FIXED_SHIFT）的規則，不會因為上一次的舊值而誤放行。
+    freshPunchProfile = (profileResult && profileResult.scheduleModel)
+      ? { scheduleModel: profileResult.scheduleModel, todaySchedule: profileResult.todaySchedule||null }
+      : null;
     if(session && profileResult && profileResult.shiftCode && session.shiftCode!==profileResult.shiftCode){
       session.shiftCode=profileResult.shiftCode;
       saveSession(session);
@@ -1567,20 +1574,24 @@ function tick(){
 setInterval(tick,1000); tick();
 
 // ── API 呼叫 ──────────────────────────────────────────────────
-async function api(action, data={}, useToken=true){
+async function api(action, data={}, useToken=true, opts={}){
   const payload = { action, data };
   if(useToken && session?.token) payload.token = session.token;
   // Permission Preview：啟用時每一次api()呼叫都自動附上目前的預覽身分，不用每個呼叫點自己記得帶——
   // 後端只有在真正登入者本人是最高管理者時才會讓這個欄位生效，一般使用者自己改這個值也沒有用。
   if(activePreview) payload.preview = activePreview;
-  // 用 GET + callback 避免 CORS
-  const encoded = encodeURIComponent(JSON.stringify(payload));
-  const url = API + '?payload=' + encoded + '&cb=' + Date.now();
+  // 一般請求用 GET + callback 避免 CORS。檔案上傳（opts.post）資料量太大，放在網址會超過長度上限
+  // 而被Google擋掉，所以改用 POST（text/plain 屬於簡單請求，不會觸發CORS preflight），資料放在body。
+  const body = JSON.stringify(payload);
+  const usePost = !!opts.post;
+  const url = usePost ? API : (API + '?payload=' + encodeURIComponent(body) + '&cb=' + Date.now());
   const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(), 20000);
+  const timer = setTimeout(()=>controller.abort(), usePost ? 60000 : 20000);
   let resp;
   try {
-    resp = await fetch(url, { method:'GET', redirect:'follow', signal: controller.signal });
+    resp = usePost
+      ? await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body, redirect:'follow', signal: controller.signal })
+      : await fetch(url, { method:'GET', redirect:'follow', signal: controller.signal });
   } catch(e) {
     if(e.name==='AbortError') throw new Error('連線逾時，請檢查網路後再試一次');
     throw e;
@@ -2010,42 +2021,64 @@ async function isWorkingDayForPunch(dateStr, wd){
   }catch(e){}
   return wd!==0&&wd!==6;
 }
+// P0-B：防止重複送出。punchInFlight在doPunch一進來就「同步」設定（早於任何await），
+// 連按兩下／兩個按鈕同時按，第二次呼叫會直接被擋掉。pendingPunch記錄「結果不明」的那一次
+// 嘗試（網路逾時、斷線）：員工重試時沿用同一個requestId，後端認得這是同一次打卡，不會重複寫入。
+let punchInFlight=false;
+let pendingPunch=null; // {type,date,requestId}
+function newPunchRequestId(){
+  try{ if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+  return 'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
+}
+function isUnknownOutcomeError(e){
+  const m=String((e&&e.message)||e||'');
+  return /連線逾時|Failed to fetch|Load failed|NetworkError|network|伺服器回應格式錯誤/i.test(m);
+}
 async function doPunch(type){
+  if(punchInFlight) return;
+  punchInFlight=true;
+  const bIn=document.getElementById('btn-clock-in'), bOut=document.getElementById('btn-clock-out');
+  if(bIn) bIn.disabled=true; if(bOut) bOut.disabled=true;
+  try{ await doPunchInner(type); }
+  finally{
+    punchInFlight=false;
+    // 按鈕狀態由loadTodayPunch依今日紀錄決定；它沒執行到（例如被前置檢查擋掉）時這裡先解鎖
+    if(bIn&&!/已完成/.test(bIn.getAttribute('data-done')||'')) bIn.disabled=false;
+    if(bOut&&!/已完成/.test(bOut.getAttribute('data-done')||'')) bOut.disabled=false;
+  }
+}
+async function doPunchInner(type){
   const today=todayKey();
   const hasIn  = todayPunchCache.find(r=>r.date===today&&r.type==='上班');
   const hasOut = todayPunchCache.find(r=>r.date===today&&r.type==='下班');
   if(type==='in'&&hasIn){showToast('今日已完成上班打卡');return;}
   if(type==='out'&&hasOut){showToast('今日已完成下班打卡');return;}
   const punchNow=new Date(), hm=punchNow.getHours()*60+punchNow.getMinutes();
+  // 排班模式／今日排班一律取「當下」的後端資料（refreshShiftDefs內的get_my_profile），不用
+  // session裡登入時存的scheduleModel——任用條件可能在登入後才換版本，過期值不能拿來放行。
+  await refreshShiftDefs();
+  const isRosterNow=!!(freshPunchProfile && freshPunchProfile.scheduleModel==='ROSTER');
+  const hasRosterToday=!!(isRosterNow && freshPunchProfile.todaySchedule);
   // ── 例假日／休息日：沒有事先核准的加班或提早上班申請就不能打卡 ──
-  // 跟後端isTaipeiWorkingDay()讀同一張「公司工作日曆」（get_holidays），不是各自認定週六週日，
-  // 避免打卡限制跟遲到說明期限用兩套不同的工作日判斷。
+  // 例外：ROSTER員工當天有有效排班（後端確認、CONFIRMED）＝這天本來就要上班，可以打卡。
+  // 這只放行「能不能打卡」，不等於核准假日加班——超出排班的時間仍交給既有roster計算標記待複核，
+  // 不會自動認列額外工時。
   const todayWd=punchNow.getDay();
-  if(!(await isWorkingDayForPunch(today, todayWd))){
+  if(!(await isWorkingDayForPunch(today, todayWd)) && !hasRosterToday){
     const approvedToday=(await getApprovedOvertimeToday('加班'))||(await getApprovedOvertimeToday('提早上班'));
     if(!approvedToday){
       showToast(`⚠ 今天不是工作日（例假／休息／國定假日），需先申請加班獲准才能打卡`);
       return;
     }
   }
-  // ── 打卡時間限制（依登入者目前的班別設定，每次打卡都重抓一次最新設定）──
-  await refreshShiftDefs();
   const sh=mySh();
-  const flexStartMin=shMin(sh.flexStart);
-  if(type==='in'){
-    if(hm<=flexStartMin){
-      // 有核准的「提早上班」才能提早打卡，最早只能到核准的開始時間（不能比核准時間還早）
-      const approvedEarly=await getApprovedOvertimeToday('提早上班');
-      const approvedStartMin=approvedEarly?shMin(approvedEarly.startTime):null;
-      if(approvedStartMin==null||hm<approvedStartMin){
-        showToast(approvedStartMin!=null?`⚠ 上班打卡最早 ${approvedEarly.startTime}`:`⚠ 上班打卡最早 ${sh.flexStart}，如需提早上班請先申請`);
-        return;
-      }
-    }
-    // 超過彈性上班結束後打卡標記遲到，但仍允許（後端會依打卡時間自動標記遲到）
-  }
-  if(type==='out'){
-    // 早退／遲到都允許打卡（只註記，不擋下）；只有「延後下班」超過核准或門檻時間才擋下
+  // 上班打卡沒有「最早時間」限制：員工提早到公司本來就該能如實保存真實打卡時間。提早打卡不等於
+  // 提前認列工時——recognizedStartMin()（遲到／正常下班時間／加班的唯一依據）仍然是：早於
+  // flexStart且沒有核准的提早上班，一律夾到flexStart認列；有核准才取核准開始時間。
+  if(type==='out' && !isRosterNow){
+    // 早退／遲到都允許打卡（只註記，不擋下）；只有「延後下班」超過核准或門檻時間才擋下。
+    // ROSTER員工不套用這條（它是A/B班的正常下班時間＋30分鐘），排班結束後的打卡照樣保存，
+    // 超出排班的部分由computeRosterDayFacts標記待複核，不自動認列。
     const approvedOT=await getApprovedOvertimeToday('加班');
     let latestOut;
     if(approvedOT){
@@ -2092,11 +2125,18 @@ async function doPunch(type){
   const btn=type==='in'?document.getElementById('btn-clock-in'):document.getElementById('btn-clock-out');
   btn.innerHTML='<span class="punch-icon">⏳</span><span>打卡中…</span>';
   btn.disabled=true;
+  if(!pendingPunch||pendingPunch.type!==type||pendingPunch.date!==today) pendingPunch={type,date:today,requestId:newPunchRequestId()};
   try {
-    await api('create_punch',{
+    const punchResp=await api('create_punch',{
       type, time:fmtT(now), mode:currentMode,
-      gps:currentGPS||null,
+      gps:currentGPS||null, requestId:pendingPunch.requestId,
     });
+    pendingPunch=null;
+    if(punchResp&&punchResp.alreadyRecorded){
+      showToast('✓ 您剛才的打卡已經成功記錄，請至打卡紀錄確認時間',4000);
+      loadTodayPunch();
+      return;
+    }
     showResultSheet({
       icon: type==='in'?'🟦':'🟥',
       iconClass: type==='in'?'icon-in':'icon-out',
@@ -2109,7 +2149,17 @@ async function doPunch(type){
       onDismiss: ()=>document.querySelectorAll('.nav-btn')[1].click(),
     });
     loadTodayPunch();
-  } catch(e){ showToast('⚠ '+e.message); }
+  } catch(e){
+    if(isUnknownOutcomeError(e)){
+      // 結果不明：請求可能已經送達並成功。不能說「失敗」，也不能叫員工盲目重按。
+      // 保留pendingPunch（同一個requestId），先重新讀取今日紀錄讓畫面反映真實狀態。
+      showToast('⚠ 網路不穩，無法確認這次打卡是否成功。請先查看打卡紀錄；若沒有紀錄，再按一次即可（不會重複打卡）。',6000);
+      try{ loadTodayPunch(); }catch(_){}
+    } else {
+      pendingPunch=null; // 後端明確回覆失敗（例如已打過卡、沒有權限）：下次是全新的一次嘗試
+      showToast('⚠ '+e.message);
+    }
+  }
   finally{ btn.disabled=false; }
 }
 
@@ -2650,7 +2700,7 @@ async function onSuppProofSelected(input){
     }
     const d=new Date(), monthStr=`${d.getFullYear()}-${f2(d.getMonth()+1)}`;
     const fileName=`${session.eid}_${session.name}_補傳_${Date.now()}.${file.name.split('.').pop()}`;
-    const up=await api('upload_proof',{fileBase64:base64,mimeType,fileName,month:monthStr});
+    const up=await api('upload_proof',{fileBase64:base64,mimeType,fileName,month:monthStr},true,{post:true});
     await api('attach_leave_proof',{rowIdx:suppProofRowIdx,proofUrl:up.fileUrl||''});
     showToast('✓ 已補上看診證明');
     suppProofRowIdx=null; input.value='';
@@ -2711,9 +2761,17 @@ async function submitLeave(){
     try{
       const d=new Date(), monthStr=`${d.getFullYear()}-${f2(d.getMonth()+1)}`;
       const fileName=`${session.eid}_${session.name}_${start.replace(/\//g,'')}.${proofFileData.name.split('.').pop()}`;
-      const r=await api('upload_proof',{fileBase64:proofFileData.base64,mimeType:proofFileData.mimeType,fileName,month:monthStr});
+      const r=await api('upload_proof',{fileBase64:proofFileData.base64,mimeType:proofFileData.mimeType,fileName,month:monthStr},true,{post:true});
       proofUrl=r.fileUrl||'';
-    }catch(e){console.log('上傳失敗:',e);}
+    }catch(e){
+      console.log('上傳失敗:',e);
+      // 看診證明上傳失敗時不能默默繼續送出請假（員工會以為有傳成功）：停下來讓員工決定。
+      // 請假尚未送出；員工可重選檔案重試，或確認後先送出、之後再用「補傳看診證明」補上。
+      if(!confirm('看診證明上傳失敗（'+e.message+'）。\n\n按「取消」：停止送出，您可以重新選擇檔案再試。\n按「確定」：先不附證明送出請假，之後請到請假紀錄用「補傳看診證明」補上（沒有證明主管無法核准病假）。')){
+        msg.textContent='⚠ 看診證明上傳失敗，請求尚未送出，請重新選擇檔案後再試一次';msg.className='form-msg err';
+        return;
+      }
+    }
   }
   try {
     await api('create_leave',{type,start,end,note,unit,proofUrl});
@@ -3135,9 +3193,11 @@ function rcGetFilteredItems(){
     const q=rcState.search.trim().toLowerCase();
     items=items.filter(x=>(x.name||'').toLowerCase().includes(q)||(x.eid||'').toLowerCase().includes(q));
   }
+  // rcState.month是''代表「全部月份」，這是唯一的月份filter state，沒有另外一套。有值時
+  // 就是'YYYY/MM'字串（跟rcPrimaryDate()回傳的日期字串前7碼格式一致，見rcAvailableMonths()），
+  // 不用再額外轉換格式。
   if(rcState.month){
-    const ym=rcState.month.replace(/-/g,'/');
-    items=items.filter(x=>{ const d=rcPrimaryDate(x); return d && d.startsWith(ym); });
+    items=items.filter(x=>{ const d=rcPrimaryDate(x); return d && d.startsWith(rcState.month); });
   }
   items.sort((a,b)=>rcSortKey(b)-rcSortKey(a));
   return items;
@@ -3146,6 +3206,28 @@ function rcPendingCounts(){
   const c={ALL:0,leave:0,patch:0,overtime:0,cancel:0};
   RC_KINDS.forEach(k=>{ c[k]=rcState.pending[k].length; c.ALL+=c[k]; });
   return c;
+}
+// 月份選單的選項完全從「目前已經載入在記憶體裡」的資料算出來（pending永遠有；historyCache
+// 只有使用者已經切到已核准/已拒絕、觸發過ensureRcHistoryLoaded()之後才會有值，這裡只是讀取
+// 既有的cache，不會為了生出月份選項而主動觸發fetch，不影響history lazy load策略）。用
+// rcPrimaryDate()同一份「這筆申請的主要日期」欄位，取前7碼('YYYY/MM')去重、新到舊排序。
+function rcAvailableMonths(){
+  const months=new Set();
+  RC_KINDS.forEach(k=>{
+    (rcState.pending[k]||[]).forEach(x=>{ const d=rcPrimaryDate(x); if(d) months.add(d.slice(0,7)); });
+    (rcState.historyCache[k]||[]).forEach(x=>{ const d=rcPrimaryDate(x); if(d) months.add(d.slice(0,7)); });
+  });
+  return [...months].sort((a,b)=>b.localeCompare(a));
+}
+function renderRcMonthOptions(){
+  const sel=document.getElementById('rc-month');
+  if(!sel) return;
+  const months=rcAvailableMonths();
+  sel.innerHTML='<option value="">全部月份</option>'+months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  // 如果目前選的月份因為資料變動（例如剛好那個月唯一一筆pending被審核完，且目前在待審核
+  // 視角）已經不在選項裡了，安全退回全部月份，不要留一個選不到、卡住的殘影值。
+  sel.value = months.includes(rcState.month) ? rcState.month : '';
+  if(sel.value==='') rcState.month='';
 }
 
 function renderRcTypeTabs(){
@@ -3169,7 +3251,7 @@ async function onRcStatusChange(){
   }
   renderReviewCenter();
 }
-function renderReviewCenter(){ renderRcTypeTabs(); renderRcQueue(); }
+function renderReviewCenter(){ renderRcTypeTabs(); renderRcMonthOptions(); renderRcQueue(); }
 function renderRcQueue(){
   const items=rcGetFilteredItems();
   const el=document.getElementById('rc-queue');
@@ -3365,10 +3447,11 @@ function renderRcAttendanceDetail(){
 // 進入審核中心（或任何會觸發loadAdmin()的admin sub-tab）時的入口——只載入pending（快），
 // 只有使用者自己切到已核准/已拒絕時才會第一次載入歷史。
 async function initReviewCenter(){
-  const searchEl=document.getElementById('rc-search'), monthEl=document.getElementById('rc-month'), statusEl=document.getElementById('rc-status');
+  const searchEl=document.getElementById('rc-search'), statusEl=document.getElementById('rc-status');
   if(searchEl) searchEl.value=rcState.search;
-  if(monthEl) monthEl.value=rcState.month;
   if(statusEl) statusEl.value=rcState.filterStatus;
+  // rc-month是select，選項要等資料載入後才知道有哪些月份可選——renderReviewCenter()裡的
+  // renderRcMonthOptions()會負責重建選項並把目前的rcState.month設回選單，這裡不用另外設值。
   await loadRcPending();
   if(rcState.filterStatus!=='待審核') await ensureRcHistoryLoaded();
   renderReviewCenter();
